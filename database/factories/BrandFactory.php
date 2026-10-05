@@ -2,6 +2,7 @@
 
 namespace Database\Factories;
 
+use App\Enums\BrandTier;
 use App\Enums\Status;
 use App\Models\Brand;
 use Illuminate\Database\Eloquent\Factories\Factory;
@@ -26,7 +27,13 @@ class BrandFactory extends Factory
             'slug' => Str::slug($name),
             'logo_path' => null,
             'country_of_origin' => fake()->randomElement(['Japan', 'South Korea', 'China', 'Germany', 'USA', 'Australia']),
+            'tier' => null,
             'status' => Status::Active,
         ];
+    }
+
+    public function tier(BrandTier $tier): static
+    {
+        return $this->state(fn (array $attributes): array => ['tier' => $tier]);
     }
 }

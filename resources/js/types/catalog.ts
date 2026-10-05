@@ -76,3 +76,28 @@ export type TyreVariant = {
     created_at: string;
     updated_at: string;
 };
+
+export type CatalogImportRowNote = { row: number; message: string };
+
+/**
+ * Mirrors `App\Services\Products\CatalogImportResult`, as serialized by
+ * `App\Http\Controllers\Admin\Products\CatalogImportController::serializeResult()`.
+ * Extends the `FitmentImportResult` shape (see `types/vehicles.ts`) with
+ * `warnings` (row imported, but a value was defaulted/assumed) and
+ * `skipped` (row deliberately excluded — WooCommerce trash/duplicate export
+ * rows — informational, not an error) alongside `errors` (row excluded, hard
+ * failure).
+ */
+export type CatalogImportResult = {
+    rowsProcessed: number;
+    brandsCreated: number;
+    brandsMatched: number;
+    modelsCreated: number;
+    modelsUpdated: number;
+    variantsCreated: number;
+    variantsUpdated: number;
+    errors: CatalogImportRowNote[];
+    warnings: CatalogImportRowNote[];
+    skipped: CatalogImportRowNote[];
+    dryRun: boolean;
+};

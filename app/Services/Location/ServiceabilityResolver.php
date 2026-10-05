@@ -7,6 +7,7 @@ use App\Enums\Status;
 use App\Models\ServiceZone;
 use App\Models\Suburb;
 use Illuminate\Database\Eloquent\Collection;
+use Illuminate\Support\Collection as SupportCollection;
 
 /**
  * Implements the "Zone resolution / overlap rule" from
@@ -82,6 +83,20 @@ class ServiceabilityResolver
             ->where('type', ServiceZoneType::Radius)
             ->get();
 
+        return $this->nearestRadiusZone($radiusZones, $suburbs);
+    }
+
+    /**
+     * The nearest-origin (priority-tie-broken) zone among `$radiusZones`
+     * covering any of `$suburbs`. Extracted so the public coverage listing
+     * (App\Services\Location\CoverageService) can assign many suburbs in
+     * memory with exactly the same rule as a single serviceability check.
+     *
+     * @param  SupportCollection<int, ServiceZone>  $radiusZones
+     * @param  Collection<int, Suburb>  $suburbs
+     */
+    public function nearestRadiusZone(SupportCollection $radiusZones, SupportCollection $suburbs): ?ServiceZone
+    {
         $best = null;
         $bestDistanceKm = null;
 

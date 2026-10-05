@@ -2,8 +2,7 @@
 
 namespace App\Http\Requests\Api\Catalogue;
 
-use App\Enums\TyreCategory;
-use App\Enums\TyreType;
+use App\Http\Requests\Concerns\TyreFilterRules;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
@@ -16,12 +15,16 @@ use Illuminate\Validation\Rule;
  */
 class TyreIndexRequest extends FormRequest
 {
+    use TyreFilterRules;
+
     /**
      * @return array<string, ValidationRule|array<mixed>|string>
      */
     public function rules(): array
     {
         return [
+            ...$this->tyreFilterRules(),
+            ...$this->tyreExtraFilterRules(),
             'width' => ['sometimes', 'integer', 'between:100,400'],
             'profile' => ['sometimes', 'integer', 'between:20,100'],
             'rim_diameter' => ['sometimes', 'integer', 'between:10,24'],
@@ -38,9 +41,6 @@ class TyreIndexRequest extends FormRequest
             'rear_profile' => ['required_if:staggered,1,true', 'integer', 'between:20,100'],
             'rear_rim_diameter' => ['required_if:staggered,1,true', 'integer', 'between:10,24'],
 
-            'brand' => ['sometimes', 'string', 'regex:/^[a-z0-9]+(?:-[a-z0-9]+)*$/'],
-            'tyre_type' => ['sometimes', Rule::enum(TyreType::class)],
-            'category' => ['sometimes', Rule::enum(TyreCategory::class)],
             'zone' => ['sometimes', 'integer', 'min:1'],
             'sort' => ['sometimes', Rule::in(['newest', 'price_asc', 'price_desc', 'name_asc'])],
             'per_page' => ['sometimes', 'integer', 'min:1', 'max:100'],

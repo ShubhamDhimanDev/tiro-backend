@@ -23,11 +23,13 @@ class CustomerVehicleFactory extends Factory
     {
         return [
             'customer_id' => Customer::factory(),
+            'label' => null,
             'rego' => null,
             'state' => null,
             'vin' => null,
             'vehicle_id' => null,
             'saved_fitment' => [],
+            'is_default' => false,
         ];
     }
 }

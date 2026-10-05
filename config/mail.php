@@ -115,4 +115,17 @@ return [
         'name' => env('MAIL_FROM_NAME', env('APP_NAME', 'Laravel')),
     ],
 
+    /*
+    |--------------------------------------------------------------------------
+    | Storefront Enquiries Recipient
+    |--------------------------------------------------------------------------
+    |
+    | Where `POST /api/v1/enquiries` (contact / quote / fleet / out-of-area
+    | notify-me) sends its internal notification. Null (unset) means the
+    | enquiry is still stored, but no mail is sent.
+    |
+    */
+
+    'enquiries_to' => env('MAIL_ENQUIRIES_TO'),
+
 ];

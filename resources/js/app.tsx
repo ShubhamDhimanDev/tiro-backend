@@ -4,7 +4,11 @@ import { TooltipProvider } from '@/components/ui/tooltip';
 import { initializeTheme } from '@/hooks/use-appearance';
 import AppLayout from '@/layouts/app-layout';
 import AuthLayout from '@/layouts/auth-layout';
+import ContentLayout from '@/layouts/content/layout';
 import LocationsLayout from '@/layouts/locations/layout';
+import ProductsLayout from '@/layouts/products/layout';
+import PromotionsLayout from '@/layouts/promotions/layout';
+import ReportingLayout from '@/layouts/reporting/layout';
 import SettingsLayout from '@/layouts/settings/layout';
 import VehiclesLayout from '@/layouts/vehicles/layout';
 
@@ -20,8 +24,16 @@ void createInertiaApp({
                 return AuthLayout;
             case name.startsWith('settings/'):
                 return [AppLayout, SettingsLayout];
+            case name.startsWith('content/'):
+                return [AppLayout, ContentLayout];
             case name.startsWith('locations/'):
                 return [AppLayout, LocationsLayout];
+            case name.startsWith('products/'):
+                return [AppLayout, ProductsLayout];
+            case name.startsWith('promotions/'):
+                return [AppLayout, PromotionsLayout];
+            case name.startsWith('reporting/'):
+                return [AppLayout, ReportingLayout];
             case name.startsWith('vehicles/'):
                 return [AppLayout, VehiclesLayout];
             default:

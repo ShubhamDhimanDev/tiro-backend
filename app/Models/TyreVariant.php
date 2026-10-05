@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Contracts\RevalidatesFrontend;
 use App\Enums\Status;
 use App\Enums\TyreSidewall;
 use App\Services\Catalogue\ZoneStockCalculator;
@@ -44,10 +45,27 @@ use Laravel\Scout\Searchable;
     'tyre_model_id', 'sku', 'slug', 'width', 'profile', 'rim_diameter', 'load_index',
     'speed_rating', 'sidewall', 'ean', 'weight_kg', 'base_price', 'status',
 ])]
-class TyreVariant extends Model
+class TyreVariant extends Model implements RevalidatesFrontend
 {
     /** @use HasFactory<TyreVariantFactory> */
     use HasFactory, Searchable;
+
+    /**
+     * The exact set of columns `GET /api/v1/tyres/{slug}`'s
+     * `TyreVariantDetailResource` either renders directly or gates the
+     * endpoint's 404-vs-200 visibility on (`status`, via
+     * `TyreController::show()`'s `where('status', ...)` filter).
+     * Deliberately excludes `sku`/`ean`/`weight_kg`/`base_price` — none are
+     * rendered by that resource, and price is never ISR-relevant in this
+     * project (kept purely client-fetched via the separate `availability`
+     * endpoint, so a stale ISR page can never show a wrong price) — see
+     * `App\Observers\FrontendRevalidationObserver`'s docblock.
+     *
+     * @var list<string>
+     */
+    private const ISR_RELEVANT_FIELDS = [
+        'slug', 'width', 'profile', 'rim_diameter', 'load_index', 'speed_rating', 'sidewall', 'status',
+    ];
 
     /**
      * Auto-generate `slug` at creation time when it isn't already set, so
@@ -179,6 +197,30 @@ class TyreVariant extends Model
             'released_at' => $this->tyreModel?->released_at?->timestamp,
             'created_at' => $this->created_at?->timestamp,
         ];
+    }
+
+    /**
+     * ISR tag for this variant's own PDP page (`content:tyre:{slug}`, not
+     * `content:tyre_variant:...` — matches the storefront's `/tyres/{slug}`
+     * route naming). Fires only on update/delete, and only when at least
+     * one of {@see ISR_RELEVANT_FIELDS} actually changed — see
+     * `TyreModel::revalidationTags()`'s identical guard/reasoning.
+     *
+     * No `default => throw` arm — see `Brand::revalidationTags()`'s
+     * docblock for why (this 3-arm match is provably exhaustive, unlike the
+     * genuinely-external-input case this project's usual exhaustive-enum
+     * convention targets).
+     *
+     * @param  'created'|'updated'|'deleted'  $event
+     * @return list<string>
+     */
+    public function revalidationTags(string $event): array
+    {
+        return match ($event) {
+            'created' => [],
+            'updated' => $this->wasChanged(self::ISR_RELEVANT_FIELDS) ? ["content:tyre:{$this->slug}"] : [],
+            'deleted' => ["content:tyre:{$this->slug}"],
+        };
     }
 
     /**

@@ -88,7 +88,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 BACKEND_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 ENV_TESTING_FILE="$BACKEND_DIR/.env.testing"
 CACHED_CONFIG_PATH="$BACKEND_DIR/bootstrap/cache/config.php"
-MYSQL_CONTAINER="tiro-mysql"
+MYSQL_CONTAINER="${MYSQL_CONTAINER:-tiro-mysql}"
 
 check_no_config_cache() {
   # See "KNOWN HAZARD" above. A cached config makes every DB_* override this

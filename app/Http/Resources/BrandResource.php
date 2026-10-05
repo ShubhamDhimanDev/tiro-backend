@@ -22,6 +22,7 @@ class BrandResource extends JsonResource
             'slug' => $this->slug,
             'logo_path' => $this->logo_path,
             'country_of_origin' => $this->country_of_origin,
+            'tier' => $this->tier?->value,
         ];
     }
 }

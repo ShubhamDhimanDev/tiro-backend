@@ -29,5 +29,13 @@ class DatabaseSeeder extends Seeder
         $this->call(LocationSeeder::class);
         $this->call(CatalogueSeeder::class);
         $this->call(VehicleSeeder::class);
+        $this->call(DurationRuleSeeder::class);
+        $this->call(CancellationPolicySeeder::class);
+        $this->call(LaunchContentSeeder::class);
+
+        // Phase 6a placeholders (launch cities, public offers) — see each
+        // seeder's docblock. Offers need the catalogue's brands.
+        $this->call(LaunchCitiesSeeder::class);
+        $this->call(LaunchOffersSeeder::class);
     }
 }

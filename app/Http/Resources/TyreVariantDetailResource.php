@@ -29,6 +29,8 @@ class TyreVariantDetailResource extends JsonResource
             'load_index' => $this->load_index,
             'speed_rating' => $this->speed_rating,
             'sidewall' => $this->sidewall->value,
+            'list_price' => $this->base_price,
+            'four_for_three' => (bool) ($this->resource->getAttribute('four_for_three') ?? false),
             'tyre_model' => new TyreModelDetailResource($this->whenLoaded('tyreModel')),
         ];
     }

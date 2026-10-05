@@ -1,0 +1,8 @@
+- [Verify, don't trust reports](feedback_verify_dont_trust_reports.md) — verify tester claims against real files/mtimes yourself, even when relayed secondhand by a peer agent
+- [composer test timeout](reference_composer_test_timeout.md) — composer's 300s process-timeout can be too short for the grown Pest suite; bypass via scripts/test-db.sh directly
+- [test-db.sh isolation](reference_test_db_isolation.md) — per-run ephemeral MySQL schema mechanism for the backend test suite, and its config-cache hazard
+- [No CI/CD — qa-lead is the gate](project_no_cicd_qa_is_the_gate.md) — nothing else catches regressions before the Hestia VPS; sign-off must be independently reproduced, not trusted
+- [Phase 3 sign-off outcome](project_phase3_signoff_outcome.md) — what was found/fixed during Phase 3 final review, and what's tracked backlog for Phase 4+
+- [Phase 4 sign-off outcome](project_phase4_signoff_outcome.md) — cart/checkout/payments: gaps closed, unconditional sign-off, 2 non-blocking backlog items, Stripe standing condition
+- [Phase 5 sign-off outcome](project_phase5_signoff_outcome.md) — promotions/pricing: real Cache::lock oversell bug fixed+verified, permission-cache red herring, unconditional sign-off, backlog
+- [Storefront redesign E2E verification](project_storefront_redesign_e2e_verification.md) — live-backend E2E setup recipe, conditional sign-off: 1 real loading.tsx/404-status bug, 2 footer-exposed test fixes, 12 confirmed pre-existing/environmental

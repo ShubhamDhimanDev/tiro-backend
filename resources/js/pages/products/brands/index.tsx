@@ -4,7 +4,6 @@ import { useState } from 'react';
 import BrandController from '@/actions/App/Http/Controllers/Admin/Products/BrandController';
 import TyreModelController from '@/actions/App/Http/Controllers/Admin/Products/TyreModelController';
 import { Can } from '@/components/can';
-import Heading from '@/components/heading';
 import InputError from '@/components/input-error';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -194,99 +193,87 @@ export default function BrandsIndex({ brands }: { brands: Brand[] }) {
         <>
             <Head title="Brands" />
 
-            <div className="space-y-6 p-4">
-                <div className="flex items-start justify-between gap-4">
-                    <Heading
-                        title="Brands"
-                        description="Every tyre brand sold, and the drill-down into each brand's models and size variants."
-                    />
-                    <Can permission="products.manage">
-                        <BrandFormDialog />
-                    </Can>
-                </div>
-
-                <Card>
-                    <CardHeader>
-                        <CardTitle>All brands</CardTitle>
-                        <CardDescription>
-                            Select a brand to manage its tyre models.
-                        </CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                        {brands.length === 0 ? (
-                            <p className="text-muted-foreground text-sm">
-                                No brands yet.
-                            </p>
-                        ) : (
-                            <table className="w-full text-sm">
-                                <thead>
-                                    <tr className="border-b text-left">
-                                        <th className="py-2 font-medium">
-                                            Name
-                                        </th>
-                                        <th className="py-2 font-medium">
-                                            Country
-                                        </th>
-                                        <th className="py-2 font-medium">
-                                            Models
-                                        </th>
-                                        <th className="py-2 font-medium">
-                                            Status
-                                        </th>
-                                        <th className="py-2 font-medium" />
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {brands.map((brand) => (
-                                        <tr
-                                            key={brand.id}
-                                            className="border-b last:border-0"
-                                        >
-                                            <td className="py-2">
-                                                <Link
-                                                    href={
-                                                        TyreModelController.index(
-                                                            brand.id,
-                                                        ).url
-                                                    }
-                                                    className="font-medium hover:underline"
-                                                >
-                                                    {brand.name}
-                                                </Link>
-                                                <div className="text-muted-foreground text-xs">
-                                                    {brand.slug}
-                                                </div>
-                                            </td>
-                                            <td className="text-muted-foreground py-2">
-                                                {brand.country_of_origin ?? '—'}
-                                            </td>
-                                            <td className="py-2">
-                                                {brand.tyre_models_count ?? 0}
-                                            </td>
-                                            <td className="py-2">
-                                                <Badge
-                                                    variant={statusBadgeVariant(
-                                                        brand.status,
-                                                    )}
-                                                >
-                                                    {brand.status}
-                                                </Badge>
-                                            </td>
-                                            <td className="py-2 text-right">
-                                                <Can permission="products.manage">
-                                                    <BrandFormDialog
-                                                        brand={brand}
-                                                    />
-                                                </Can>
-                                            </td>
-                                        </tr>
-                                    ))}
-                                </tbody>
-                            </table>
-                        )}
-                    </CardContent>
-                </Card>
+            <div className="flex justify-end">
+                <Can permission="products.manage">
+                    <BrandFormDialog />
+                </Can>
             </div>
+
+            <Card>
+                <CardHeader>
+                    <CardTitle>All brands</CardTitle>
+                    <CardDescription>
+                        Select a brand to manage its tyre models.
+                    </CardDescription>
+                </CardHeader>
+                <CardContent>
+                    {brands.length === 0 ? (
+                        <p className="text-muted-foreground text-sm">
+                            No brands yet.
+                        </p>
+                    ) : (
+                        <table className="w-full text-sm">
+                            <thead>
+                                <tr className="border-b text-left">
+                                    <th className="py-2 font-medium">Name</th>
+                                    <th className="py-2 font-medium">
+                                        Country
+                                    </th>
+                                    <th className="py-2 font-medium">Models</th>
+                                    <th className="py-2 font-medium">Status</th>
+                                    <th className="py-2 font-medium" />
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {brands.map((brand) => (
+                                    <tr
+                                        key={brand.id}
+                                        className="border-b last:border-0"
+                                    >
+                                        <td className="py-2">
+                                            <Link
+                                                href={
+                                                    TyreModelController.index(
+                                                        brand.id,
+                                                    ).url
+                                                }
+                                                className="font-medium hover:underline"
+                                            >
+                                                {brand.name}
+                                            </Link>
+                                            <div className="text-muted-foreground text-xs">
+                                                {brand.slug}
+                                            </div>
+                                        </td>
+                                        <td className="text-muted-foreground py-2">
+                                            {brand.country_of_origin ?? '—'}
+                                        </td>
+                                        <td className="py-2">
+                                            {brand.tyre_models_count ?? 0}
+                                        </td>
+                                        <td className="py-2">
+                                            <Badge
+                                                variant={statusBadgeVariant(
+                                                    brand.status,
+                                                )}
+                                            >
+                                                {brand.status}
+                                            </Badge>
+                                        </td>
+                                        <td className="py-2 text-right">
+                                            <Can permission="products.manage">
+                                                <BrandFormDialog
+                                                    brand={brand}
+                                                />
+                                            </Can>
+                                        </td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    )}
+                </CardContent>
+            </Card>
         </>
     );
 }

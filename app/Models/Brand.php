@@ -2,6 +2,8 @@
 
 namespace App\Models;
 
+use App\Contracts\RevalidatesFrontend;
+use App\Enums\BrandTier;
 use App\Enums\Status;
 use Database\Factories\BrandFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
@@ -16,12 +18,13 @@ use Illuminate\Support\Carbon;
  * @property string $slug
  * @property string|null $logo_path
  * @property string|null $country_of_origin
+ * @property BrandTier|null $tier
  * @property Status $status
  * @property Carbon|null $created_at
  * @property Carbon|null $updated_at
  */
-#[Fillable(['name', 'slug', 'logo_path', 'country_of_origin', 'status'])]
-class Brand extends Model
+#[Fillable(['name', 'slug', 'logo_path', 'country_of_origin', 'tier', 'status'])]
+class Brand extends Model implements RevalidatesFrontend
 {
     /** @use HasFactory<BrandFactory> */
     use HasFactory;
@@ -37,6 +40,32 @@ class Brand extends Model
     }
 
     /**
+     * ISR tag for the storefront's brand landing/listing page. Fires only
+     * on update/delete — a newly created Brand has no previously-cached
+     * page to invalidate — see `App\Observers\FrontendRevalidationObserver`.
+     *
+     * No `default => throw` arm (unlike this project's usual exhaustive-enum
+     * convention, e.g. `App\Enums\VehicleFitmentConfidence`): that
+     * convention exists for genuinely external/untyped input (a Stripe
+     * webhook string, say — see `PaymentMethod::fromStripeType()`) where
+     * phpstan can't prove the match exhaustive. Here `$event` only ever
+     * comes from `FrontendRevalidationObserver`'s own three hardcoded call
+     * sites, so phpstan *can* prove this 3-arm match exhaustive against the
+     * `@param` type below — a trailing `default => throw` would be
+     * genuinely unreachable dead code, which phpstan correctly flags.
+     *
+     * @param  'created'|'updated'|'deleted'  $event
+     * @return list<string>
+     */
+    public function revalidationTags(string $event): array
+    {
+        return match ($event) {
+            'created' => [],
+            'updated', 'deleted' => ["content:brand:{$this->slug}"],
+        };
+    }
+
+    /**
      * Get the attributes that should be cast.
      *
      * @return array<string, string>
@@ -44,6 +73,7 @@ class Brand extends Model
     protected function casts(): array
     {
         return [
+            'tier' => BrandTier::class,
             'status' => Status::class,
         ];
     }

@@ -36,7 +36,7 @@ class CatalogueSeeder extends Seeder
 
         $catalogue = [
             [
-                'brand' => ['name' => 'Bridgestone', 'country_of_origin' => 'Japan'],
+                'brand' => ['name' => 'Bridgestone', 'country_of_origin' => 'Japan', 'tier' => 'premium'],
                 'models' => [
                     [
                         'name' => 'Turanza T005', 'category' => TyreCategory::Car, 'tyre_type' => TyreType::Highway,
@@ -57,7 +57,7 @@ class CatalogueSeeder extends Seeder
                 ],
             ],
             [
-                'brand' => ['name' => 'Michelin', 'country_of_origin' => 'France'],
+                'brand' => ['name' => 'Michelin', 'country_of_origin' => 'France', 'tier' => 'premium'],
                 'models' => [
                     [
                         'name' => 'Primacy 4', 'category' => TyreCategory::Car, 'tyre_type' => TyreType::Highway,
@@ -78,7 +78,7 @@ class CatalogueSeeder extends Seeder
                 ],
             ],
             [
-                'brand' => ['name' => 'Goodyear', 'country_of_origin' => 'USA'],
+                'brand' => ['name' => 'Goodyear', 'country_of_origin' => 'USA', 'tier' => 'premium'],
                 'models' => [
                     [
                         'name' => 'Wrangler Territory', 'category' => TyreCategory::FourByFour, 'tyre_type' => TyreType::AllTerrain,
@@ -102,7 +102,7 @@ class CatalogueSeeder extends Seeder
             // (otherwise unrepresented in this catalogue) and a non-Standard
             // sidewall marking real products to search/filter against.
             [
-                'brand' => ['name' => 'Kumho', 'country_of_origin' => 'South Korea'],
+                'brand' => ['name' => 'Kumho', 'country_of_origin' => 'South Korea', 'tier' => 'mid'],
                 'models' => [
                     [
                         'name' => 'Road Venture MT51', 'category' => TyreCategory::LightTruck, 'tyre_type' => TyreType::MudTerrain,
@@ -122,6 +122,7 @@ class CatalogueSeeder extends Seeder
                 'slug' => Str::slug($brandData['brand']['name']),
                 'logo_path' => null,
                 'country_of_origin' => $brandData['brand']['country_of_origin'],
+                'tier' => $brandData['brand']['tier'] ?? null,
                 'status' => Status::Active,
             ]);
 
@@ -134,7 +135,7 @@ class CatalogueSeeder extends Seeder
                     'tyre_type' => $modelData['tyre_type'],
                     'construction' => TyreConstruction::Radial,
                     'run_flat' => $modelData['run_flat'],
-                    'description' => "{$brand->name} {$modelData['name']} — seeded dev/test catalogue data.",
+                    'description' => "The {$brand->name} {$modelData['name']} is a ".str_replace('_', ' ', $modelData['tyre_type']->value).' tyre for '.str_replace('_', ' ', $modelData['category']->value).' vehicles, supplied and fitted at your door.',
                     'warranty_text' => 'Manufacturer warranty applies. See warranty terms for full conditions.',
                     'warranty_km' => 80000,
                     'service_inclusions' => ['Fitting', 'Computer balancing', 'New valves', 'Old tyre disposal (where applicable)'],
@@ -169,8 +170,8 @@ class CatalogueSeeder extends Seeder
                         'load_index' => $variantData['load_index'],
                         'speed_rating' => $variantData['speed_rating'],
                         'sidewall' => $variantData['sidewall'] ?? TyreSidewall::Standard,
-                        'ean' => null,
-                        'weight_kg' => 10.5,
+                        'ean' => self::ean("93{$tyreModel->id}{$variantData['width']}{$variantData['profile']}{$variantData['rim_diameter']}"),
+                        'weight_kg' => round(7 + ($variantData['width'] - 185) * 0.065 + ($variantData['rim_diameter'] - 14) * 0.9, 1),
                         'base_price' => $variantData['base_price'],
                         'status' => Status::Active,
                     ]);
@@ -202,5 +203,21 @@ class CatalogueSeeder extends Seeder
         $this->command->info('Catalogue seeded: '.Brand::query()->count().' brands, '.
             TyreModel::query()->count().' models, '.TyreVariant::query()->count().' variants, '.
             InventoryItem::query()->count().' inventory rows, '.PopularSize::query()->count().' popular sizes.');
+    }
+
+    /**
+     * A stable, valid EAN-13 derived from a numeric seed (zero-padded to 12
+     * digits, then the standard check digit appended).
+     */
+    private static function ean(string $seed): string
+    {
+        $digits = str_pad(substr(preg_replace('/\D/', '', $seed), 0, 12), 12, '0', STR_PAD_LEFT);
+        $sum = 0;
+
+        foreach (str_split($digits) as $position => $digit) {
+            $sum += (int) $digit * ($position % 2 === 0 ? 1 : 3);
+        }
+
+        return $digits.((10 - $sum % 10) % 10);
     }
 }

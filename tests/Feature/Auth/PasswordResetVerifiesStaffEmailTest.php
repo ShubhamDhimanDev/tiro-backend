@@ -1,6 +1,8 @@
 <?php
 
 use App\Models\User;
+use Illuminate\Auth\Events\PasswordReset;
+use Illuminate\Contracts\Events\Dispatcher;
 use Illuminate\Support\Facades\Password;
 use Laravel\Fortify\Features;
 
@@ -56,4 +58,22 @@ it('actually gates a verified-only route for an unverified staff user, proving t
     $response = $this->actingAs($user)->get(route('dashboard'));
 
     $response->assertRedirect(route('verification.notice'));
+});
+
+/**
+ * Regression test for the Phase 7 auto-discovery finding (see
+ * `App\Listeners\LogNotificationDelivery`'s docblock): `app/Listeners` is
+ * zero-config auto-discovered by Laravel regardless of this app's explicit
+ * `Event::listen()` convention, which was registering this listener twice
+ * before `MarkStaffEmailAsVerifiedOnPasswordReset` implemented
+ * `ShouldBeDiscovered => false`. Only one other listener
+ * (`SendEmailVerificationNotification`, a framework class outside
+ * `app/Listeners` and unaffected by this bug) is registered for a different
+ * event, so `PasswordReset` should resolve to exactly this app's one
+ * intentional registration.
+ */
+it('is registered for PasswordReset exactly once, not twice via auto-discovery', function () {
+    $listeners = app(Dispatcher::class)->getListeners(PasswordReset::class);
+
+    expect($listeners)->toHaveCount(1);
 });

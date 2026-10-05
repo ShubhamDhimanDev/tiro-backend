@@ -344,9 +344,10 @@ export default function TyreModelVariantsIndex({
         <>
             <Head title={`${tyreModel.name} — variants`} />
 
-            <div className="space-y-6 p-4">
+            <div className="space-y-6">
                 <div className="flex items-start justify-between gap-4">
                     <Heading
+                        variant="small"
                         title={`${tyreModel.brand?.name ?? ''} ${tyreModel.name} — size variants`}
                         description="Every sellable SKU (size) under this model."
                     />

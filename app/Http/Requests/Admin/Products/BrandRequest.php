@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests\Admin\Products;
 
+use App\Enums\BrandTier;
 use App\Enums\Status;
 use App\Models\Brand;
 use App\Support\Auth\AdminGuard;
@@ -44,6 +45,7 @@ class BrandRequest extends FormRequest
             ],
             'logo_path' => ['nullable', 'string', 'max:2048'],
             'country_of_origin' => ['nullable', 'string', 'max:255'],
+            'tier' => ['nullable', Rule::enum(BrandTier::class)],
             'status' => ['required', Rule::enum(Status::class)],
         ];
     }

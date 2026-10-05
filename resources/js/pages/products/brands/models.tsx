@@ -391,9 +391,10 @@ export default function BrandModelsIndex({
         <>
             <Head title={`${brand.name} — models`} />
 
-            <div className="space-y-6 p-4">
+            <div className="space-y-6">
                 <div className="flex items-start justify-between gap-4">
                     <Heading
+                        variant="small"
                         title={`${brand.name} models`}
                         description="Each model's size variants are managed one level down."
                     />

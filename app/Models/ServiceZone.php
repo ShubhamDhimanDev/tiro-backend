@@ -38,7 +38,7 @@ use Illuminate\Support\Carbon;
  * @property Carbon|null $created_at
  * @property Carbon|null $updated_at
  */
-#[Fillable(['name', 'state_id', 'type', 'origin_lat', 'origin_lng', 'radius_km', 'operating_hours', 'priority', 'status'])]
+#[Fillable(['name', 'city_name', 'city_slug', 'state_id', 'type', 'origin_lat', 'origin_lng', 'radius_km', 'operating_hours', 'priority', 'status'])]
 class ServiceZone extends Model
 {
     /** @use HasFactory<ServiceZoneFactory> */

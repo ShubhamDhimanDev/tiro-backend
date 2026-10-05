@@ -19,7 +19,11 @@
         "laravel/tinker": "^3.0",
         "laravel/wayfinder": "^0.1.14",
         "meilisearch/meilisearch-php": "^1.17",
-        "spatie/laravel-permission": "*"
+        "paypal/paypal-server-sdk": "^2.3",
+        "predis/predis": "^3.6",
+        "resend/resend-laravel": "^1.5",
+        "spatie/laravel-permission": "*",
+        "stripe/stripe-php": "^21.3"
     },
     "require-dev": {
         "fakerphp/faker": "^1.24",
@@ -57,6 +61,7 @@
         ],
         "dev": [
             "Composer\\Config::disableProcessTimeout",
+            "@php scripts/check-dev-port.php",
             "@php artisan dev"
         ],
         "lint": [

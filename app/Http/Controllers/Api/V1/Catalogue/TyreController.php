@@ -5,14 +5,20 @@ namespace App\Http\Controllers\Api\V1\Catalogue;
 use App\Enums\Status;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Api\Catalogue\TyreAvailabilityRequest;
+use App\Http\Requests\Api\Catalogue\TyreFacetsRequest;
 use App\Http\Requests\Api\Catalogue\TyreIndexRequest;
 use App\Http\Requests\Api\Catalogue\TyreLatestReleasesRequest;
+use App\Http\Requests\Api\Catalogue\TyrePriceLaddersRequest;
 use App\Http\Resources\PopularSizeResource;
 use App\Http\Resources\TyreVariantDetailResource;
 use App\Http\Resources\TyreVariantResource;
 use App\Models\PopularSize;
 use App\Models\ServiceZone;
 use App\Models\TyreVariant;
+use App\Services\Catalogue\FourForThreeFlagService;
+use App\Services\Catalogue\TyreFacetsBuilder;
+use App\Services\Catalogue\TyrePriceLadderBuilder;
+use App\Services\Catalogue\TyreSearchFilters;
 use App\Services\Catalogue\ZoneStockCalculator;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
@@ -36,7 +42,13 @@ class TyreController extends Controller
 
     private const MAX_PER_PAGE = 100;
 
-    public function __construct(private readonly ZoneStockCalculator $stockCalculator) {}
+    public function __construct(
+        private readonly ZoneStockCalculator $stockCalculator,
+        private readonly TyreSearchFilters $searchFilters,
+        private readonly FourForThreeFlagService $fourForThreeFlags,
+        private readonly TyreFacetsBuilder $facetsBuilder,
+        private readonly TyrePriceLadderBuilder $ladderBuilder,
+    ) {}
 
     public function index(TyreIndexRequest $request): JsonResponse
     {
@@ -75,6 +87,7 @@ class TyreController extends Controller
             'rim_diameter' => $request->filled('rim_diameter') ? $request->integer('rim_diameter') : null,
         ])->paginate($perPage)->withQueryString();
 
+        $this->attachListingFlags($paginator, $zone);
         $this->attachStockStatus($paginator, $zone);
 
         return TyreVariantResource::collection($paginator)->response();
@@ -90,6 +103,7 @@ class TyreController extends Controller
             ->paginate($this->perPage($request))
             ->withQueryString();
 
+        $this->attachListingFlags($paginator, $zone);
         $this->attachStockStatus($paginator, $zone);
 
         return TyreVariantResource::collection($paginator);
@@ -103,6 +117,46 @@ class TyreController extends Controller
             ->get();
 
         return PopularSizeResource::collection($sizes);
+    }
+
+    /**
+     * Filter-sidebar option lists with counts, scoped by size/category/type.
+     */
+    public function facets(TyreFacetsRequest $request): JsonResponse
+    {
+        $query = $this->baseQuery();
+
+        foreach (['width', 'profile', 'rim_diameter'] as $dimension) {
+            if ($request->filled($dimension)) {
+                $query->where("tyre_variants.{$dimension}", $request->integer($dimension));
+            }
+        }
+
+        $this->searchFilters->apply($query, $request->safe()->only(['category', 'tyre_type']));
+
+        return response()->json(['data' => $this->facetsBuilder->build($query)]);
+    }
+
+    /**
+     * Per-tyre price for 1 to 5 tyres, from the real pricing engine.
+     */
+    public function priceLadders(TyrePriceLaddersRequest $request): JsonResponse
+    {
+        $zone = $this->resolveZone($request, 'zone');
+
+        $variants = TyreVariant::query()
+            ->whereIn('id', $request->variantIds())
+            ->where('status', Status::Active)
+            ->whereHas('tyreModel', fn (Builder $query) => $query->where('status', Status::Active)
+                ->whereHas('brand', fn (Builder $brand) => $brand->where('status', Status::Active)))
+            ->with('tyreModel.brand')
+            ->get();
+
+        $flags = $this->fourForThreeFlags->forVariants($variants, $zone?->id);
+
+        return response()->json(['data' => $variants->mapWithKeys(fn (TyreVariant $variant): array => [
+            (string) $variant->id => $this->ladderBuilder->build($variant, $zone?->id, $flags[$variant->id] ?? false),
+        ])->all()]);
     }
 
     public function show(string $slug): TyreVariantDetailResource
@@ -119,6 +173,8 @@ class TyreController extends Controller
             ->first();
 
         abort_if($variant === null || $variant->tyreModel === null, 404);
+
+        $variant->setAttribute('four_for_three', $this->fourForThreeFlags->forVariants([$variant])[$variant->id] ?? false);
 
         return new TyreVariantDetailResource($variant);
     }
@@ -170,15 +226,7 @@ class TyreController extends Controller
             $query->where('tyre_variants.rim_diameter', $size['rim_diameter']);
         }
 
-        if ($brand = $request->validated('brand')) {
-            $query->where('brands.slug', $brand);
-        }
-        if ($tyreType = $request->validated('tyre_type')) {
-            $query->where('tyre_models.tyre_type', $tyreType);
-        }
-        if ($category = $request->validated('category')) {
-            $query->where('tyre_models.category', $category);
-        }
+        $this->searchFilters->apply($query, $request->validated());
 
         return $this->applySort($query, $request->validated('sort') ?? 'newest');
     }
@@ -227,9 +275,28 @@ class TyreController extends Controller
     {
         $paginator = $query->paginate($perPage, ['*'], $pageName)->withQueryString();
 
+        $this->attachListingFlags($paginator, $zone);
         $this->attachStockStatus($paginator, $zone);
 
         return TyreVariantResource::collection($paginator)->response()->getData(true);
+    }
+
+    /**
+     * Sets the always-present listing flags (`four_for_three`) on each item.
+     *
+     * @param  LengthAwarePaginator<int, TyreVariant>  $paginator
+     */
+    private function attachListingFlags(LengthAwarePaginator $paginator, ?ServiceZone $zone): void
+    {
+        if ($paginator->isEmpty()) {
+            return;
+        }
+
+        $flags = $this->fourForThreeFlags->forVariants($paginator->getCollection(), $zone?->id);
+
+        $paginator->getCollection()->each(function (TyreVariant $variant) use ($flags): void {
+            $variant->setAttribute('four_for_three', $flags[$variant->id] ?? false);
+        });
     }
 
     /**
@@ -257,7 +324,7 @@ class TyreController extends Controller
      * docs/architecture/02-api-contract.md), so it 404s instead, matching
      * the `availability` endpoint's handling of the same situation.
      */
-    private function resolveZone(TyreIndexRequest|TyreLatestReleasesRequest $request, string $key): ?ServiceZone
+    private function resolveZone(TyreIndexRequest|TyreLatestReleasesRequest|TyrePriceLaddersRequest $request, string $key): ?ServiceZone
     {
         if (! $request->filled($key)) {
             return null;

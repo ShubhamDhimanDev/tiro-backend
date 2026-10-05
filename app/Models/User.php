@@ -2,11 +2,13 @@
 
 namespace App\Models;
 
+use App\Policies\BookingPolicy;
 use Database\Factories\UserFactory;
 use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\Hidden;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Illuminate\Support\Carbon;
@@ -34,6 +36,19 @@ class User extends Authenticatable implements MustVerifyEmail, PasskeyUser
 {
     /** @use HasFactory<UserFactory> */
     use HasFactory, HasRoles, Notifiable, PasskeyAuthenticatable, TwoFactorAuthenticatable;
+
+    /**
+     * Get the technician roster row this staff login is scoped to, if this
+     * user is a provisioned technician login — see
+     * docs/architecture/07-admin-auth-permissions.md §5 and
+     * {@see BookingPolicy}.
+     *
+     * @return HasOne<Technician, $this>
+     */
+    public function technician(): HasOne
+    {
+        return $this->hasOne(Technician::class);
+    }
 
     /**
      * Get the attributes that should be cast.

@@ -9,13 +9,23 @@ import {
     LayoutGrid,
     MapPin,
     Package,
+    ScrollText,
     ShieldCheck,
     ShoppingCart,
+    Star,
     Tag,
     Users as UsersIcon,
     Warehouse,
 } from 'lucide-react';
+import AuditLogController from '@/actions/App/Http/Controllers/Admin/AuditLogController';
+import DispatchBoardController from '@/actions/App/Http/Controllers/Admin/Bookings/DispatchBoardController';
+import ContentPageController from '@/actions/App/Http/Controllers/Admin/Content/ContentPageController';
+import CustomerController from '@/actions/App/Http/Controllers/Admin/Customers/CustomerController';
+import OrderController from '@/actions/App/Http/Controllers/Admin/Orders/OrderController';
 import BrandController from '@/actions/App/Http/Controllers/Admin/Products/BrandController';
+import PromotionController from '@/actions/App/Http/Controllers/Admin/Promotions/PromotionController';
+import ReportingController from '@/actions/App/Http/Controllers/Admin/Reporting/ReportingController';
+import ReviewController from '@/actions/App/Http/Controllers/Admin/Reviews/ReviewController';
 import StateController from '@/actions/App/Http/Controllers/Admin/Locations/StateController';
 import StockLocationController from '@/actions/App/Http/Controllers/Admin/Inventory/StockLocationController';
 import UserController from '@/actions/App/Http/Controllers/Admin/UserController';
@@ -46,7 +56,9 @@ const mainNavItems: NavItem[] = [
 ];
 
 /**
- * The 10 admin modules from the permission matrix (docs/architecture/07).
+ * The 10 admin modules from the permission matrix (docs/architecture/07),
+ * plus the standalone `audit-log.view` entry (not one of the 10 tiered
+ * modules — see `RolesAndPermissionsSeeder::STANDALONE_PERMISSIONS_BY_ROLE`).
  * `href: null` = no real page yet (later phases); renders as a disabled
  * placeholder rather than a link. Each module's permission list is
  * "view or manage" (manage implies view) so the item shows for anyone with
@@ -54,11 +66,13 @@ const mainNavItems: NavItem[] = [
  * `bookings.view-own`) still happens server-side per Policy, this list only
  * decides whether the nav entry appears at all.
  *
- * "Roles & Users" permission slug is `roles-users.manage` — pinned by
- * project-manager to match backend-agent's seeder (every other module's
- * slug is a single word matching its display name; this is the one compound
- * one). The other 9 modules' slugs are still inferred from the doc's
- * `{module}.manage` pattern and unconfirmed against the seeder.
+ * **Verified 2026-09-23 against `RolesAndPermissionsSeeder.php` directly**
+ * (Phase 6 RBAC hardening pass — this project has hit permission-slug-vs-
+ * seeded-name drift as a recurring bug class): every module's slug below is
+ * a single word matching its display name and IS the real seeded name,
+ * except "Roles & Users" (`roles-users.manage`, the one compound slug,
+ * pinned by project-manager in an earlier phase) and "Bookings" (see that
+ * entry's own comment — `bookings.view` is NOT a real seeded permission).
  */
 const moduleNavItems: PermissionNavItem[] = [
     {
@@ -75,19 +89,27 @@ const moduleNavItems: PermissionNavItem[] = [
     },
     {
         title: 'Orders',
-        href: null,
+        href: OrderController.index().url,
         icon: ShoppingCart,
         permissions: ['orders.view', 'orders.manage'],
     },
     {
         title: 'Bookings',
-        href: null,
+        href: DispatchBoardController.index().url,
         icon: CalendarClock,
-        permissions: ['bookings.view', 'bookings.manage', 'bookings.view-own'],
+        // No plain `bookings.view` here — verified against
+        // `RolesAndPermissionsSeeder`: nobody holds it (Operations/CS/Fleet/
+        // Super Admin hold `bookings.manage`, a superset; only Technician
+        // holds the separate `bookings.view-own`). Removed 2026-09-23 (Phase
+        // 6 RBAC hardening pass) — it was a dead string in this `anyOf`
+        // check, harmless since `bookings.manage`/`bookings.view-own` already
+        // cover every real holder, but exactly the kind of unverified
+        // literal this pass exists to catch.
+        permissions: ['bookings.manage', 'bookings.view-own'],
     },
     {
         title: 'Customers',
-        href: null,
+        href: CustomerController.index().url,
         icon: UsersIcon,
         permissions: ['customers.view', 'customers.manage'],
     },
@@ -99,19 +121,41 @@ const moduleNavItems: PermissionNavItem[] = [
     },
     {
         title: 'Promotions',
-        href: null,
+        href: PromotionController.index().url,
         icon: Tag,
+        // **Updated 2026-09-23 (Phase 6 RBAC hardening pass):** now
+        // `promotions.view` OR `promotions.manage`, not `.manage` alone.
+        // Previously `.manage`-only was deliberate — every Promotions
+        // screen's `index` route was ALSO gated `.manage` only, so a
+        // `.view`-only visitor had no screen here to land on. backend-agent
+        // fixed that route gating today (see `routes/admin.php`'s
+        // Promotions section) so campaigns/price-guarantee-claims/price-
+        // rules are now real, reachable, read-only screens for a
+        // `.view`-only Operations/Customer Support user (create/edit/
+        // delete controls stay hidden via each screen's own
+        // `<Can permission="promotions.manage">`, e.g.
+        // `PromotionsCampaignsIndex`) — this nav entry was still gating on
+        // the old, narrower permission until this fix.
         permissions: ['promotions.view', 'promotions.manage'],
     },
     {
         title: 'Content',
-        href: null,
+        href: ContentPageController.index().url,
         icon: FileText,
         permissions: ['content.view', 'content.manage'],
     },
     {
+        title: 'Reviews',
+        href: ReviewController.index().url,
+        icon: Star,
+        // Phase 8 — same `content.view`/`content.manage` pair as Content
+        // above (no new permission; verified against `routes/admin.php`'s
+        // Reviews group and `ReviewUpdateRequest`).
+        permissions: ['content.view', 'content.manage'],
+    },
+    {
         title: 'Reporting',
-        href: null,
+        href: ReportingController.show('sales').url,
         icon: BarChart3,
         permissions: ['reporting.view'],
     },
@@ -126,6 +170,16 @@ const moduleNavItems: PermissionNavItem[] = [
         href: VehicleController.index().url,
         icon: Car,
         permissions: ['vehicles.view', 'vehicles.manage'],
+    },
+    {
+        title: 'Audit Log',
+        href: AuditLogController.index().url,
+        icon: ScrollText,
+        // Standalone permission, not a `{module}.view`/`.manage` pair — see
+        // `RolesAndPermissionsSeeder::STANDALONE_PERMISSIONS_BY_ROLE`:
+        // super_admin/operations/customer_support only, deliberately not
+        // ecommerce/fleet/technician.
+        permissions: ['audit-log.view'],
     },
 ];
 

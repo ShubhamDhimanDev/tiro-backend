@@ -1,0 +1,7 @@
+- [Project structure & review conventions](reference_project_structure.md) — where docs/agents live, this project's per-phase upfront-flagging practice.
+- [Phase 4 commerce review outcome](project_phase4_commerce_review.md) — 2026-09-22 findings + 2026-09-22 re-review closure: both must-fix items verified fixed, suite/PHPStan/Pint/composer audit independently confirmed.
+- [Guest continuity token pattern](feedback_guest_token_pattern.md) — how to review `manage_token`-style reuses (Booking → Order) without re-deriving from scratch.
+- [Stripe webhook idempotency-ordering pitfall](feedback_webhook_cache_ordering.md) — standing rule to check on any future webhook/queued-processing code in this codebase.
+- [Idempotency middleware × Inertia mismatch](feedback_idempotency_middleware_inertia_mismatch.md) — JSON-only middleware reused on an Inertia admin route; UX gap + separate "key must be per-intent not per-click" risk to flag to UI-builders.
+- [Phase 5 promotions/pricing review outcome](project_phase5_promotions_pricing_review.md) — 2026-09-22/23: all 4 items verified clear; item 4b's fix (promo-hold lock rescoping) independently re-verified 2026-09-23, closed.
+- [Lock scope vs. transaction commit](feedback_lock_scope_vs_transaction_commit.md) — standing check: any `Cache::lock()` protecting a DB write must stay held until its `DB::transaction()` commits, not release before. Reference-correct example vs. buggy example both live in `BookingController`.

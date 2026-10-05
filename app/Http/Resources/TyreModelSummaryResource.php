@@ -29,6 +29,8 @@ class TyreModelSummaryResource extends JsonResource
             'images' => $this->images,
             'category' => $this->category->value,
             'tyre_type' => $this->tyre_type->value,
+            'run_flat' => (bool) $this->run_flat,
+            'tier' => $this->whenLoaded('brand', fn () => $this->brand->tier?->value),
             'brand' => new BrandResource($this->whenLoaded('brand')),
         ];
     }

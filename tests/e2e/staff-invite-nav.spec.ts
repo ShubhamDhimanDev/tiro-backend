@@ -31,6 +31,18 @@ import { totp } from './support/totp';
  * `@playwright/test` is intentionally NOT added to `package.json` here
  * (adding dependencies needs approval) -- npx resolves it on demand.
  *
+ * `backend/playwright.config.ts` (sitting next to this file's `tests/e2e`
+ * dir) is auto-discovered by the `npx playwright test` invocation above as
+ * long as you run it from `backend/` -- it forces `workers: 1`. Don't run
+ * this suite with more than one worker: this project's dev server is
+ * PHP's built-in single-threaded server (`php artisan serve`, started by
+ * `composer run dev`), and concurrent Playwright workers logging in as
+ * different admin users at the same time causes real cross-test
+ * session/auth bleed (confirmed 2026-09-25 -- this broke pre-existing
+ * specs in this suite, not just new ones). If you ever pass an explicit
+ * `--workers=N` on the CLI it overrides the config and reintroduces that
+ * bleed, so don't.
+ *
  * CAVEAT (seen 2026-09-11, Windows/Node 25, npm 11): a bare
  * `npx --yes @playwright/test@1.63.0 test tests/e2e` can fail with
  * `Cannot find package '@playwright/test' imported from

@@ -20,3 +20,17 @@ export function dollarsInputToCents(value: string): number {
 
     return Math.round(dollars * 100);
 }
+
+/**
+ * Display-only cents -> AUD formatter (e.g. `75600` -> `"$756.00"`). All
+ * prices in this system are GST-inclusive — see
+ * docs/architecture/01-data-model.md's "Money & tax convention" section —
+ * so this is always the final, all-in figure, never something a caller
+ * should add GST on top of.
+ */
+export function formatCents(cents: number): string {
+    return new Intl.NumberFormat('en-AU', {
+        style: 'currency',
+        currency: 'AUD',
+    }).format(cents / 100);
+}

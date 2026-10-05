@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Contracts\RevalidatesFrontend;
 use App\Enums\Status;
 use App\Enums\TyreCategory;
 use App\Enums\TyreConstruction;
@@ -41,10 +42,29 @@ use Illuminate\Support\Carbon;
     'description', 'warranty_text', 'warranty_km', 'service_inclusions', 'released_at',
     'images', 'status',
 ])]
-class TyreModel extends Model
+class TyreModel extends Model implements RevalidatesFrontend
 {
     /** @use HasFactory<TyreModelFactory> */
     use HasFactory;
+
+    /**
+     * The exact set of columns `GET /api/v1/tyres/{slug}`'s
+     * `TyreModelDetailResource` (nested under `TyreVariantDetailResource`)
+     * either renders directly or gates the endpoint's 404-vs-200 visibility
+     * on (`status`, via `TyreController::show()`'s `where('status', ...)`
+     * filter). Deliberately excludes `brand_id`/`released_at` (not
+     * rendered by that resource) and anything price/`InventoryItem`-related
+     * (never ISR-cached in this project — see
+     * `App\Observers\FrontendRevalidationObserver`'s docblock and this
+     * model's {@see revalidationTags()}).
+     *
+     * @var list<string>
+     */
+    private const ISR_RELEVANT_FIELDS = [
+        'name', 'slug', 'description', 'warranty_text', 'warranty_km',
+        'service_inclusions', 'images', 'construction', 'run_flat',
+        'category', 'tyre_type', 'status',
+    ];
 
     /**
      * Get the brand this model is sold under.
@@ -64,6 +84,33 @@ class TyreModel extends Model
     public function tyreVariants(): HasMany
     {
         return $this->hasMany(TyreVariant::class);
+    }
+
+    /**
+     * ISR tag for this model's own PDP static-content contribution. Fires
+     * only on update/delete, and only when at least one of
+     * {@see ISR_RELEVANT_FIELDS} actually changed — a bare price/stock-
+     * adjacent save (nothing lives on this model, but mirrors
+     * `TyreVariant`'s identical guard) or an irrelevant-field touch must
+     * not queue a webhook. Mirrors `PromotionObserver::updated()`'s
+     * `getChanges() === []` early-return pattern, scoped to this specific
+     * field allowlist instead of "any change at all".
+     *
+     * No `default => throw` arm — see `Brand::revalidationTags()`'s
+     * docblock for why (this 3-arm match is provably exhaustive, unlike the
+     * genuinely-external-input case this project's usual exhaustive-enum
+     * convention targets).
+     *
+     * @param  'created'|'updated'|'deleted'  $event
+     * @return list<string>
+     */
+    public function revalidationTags(string $event): array
+    {
+        return match ($event) {
+            'created' => [],
+            'updated' => $this->wasChanged(self::ISR_RELEVANT_FIELDS) ? ["content:tyre_model:{$this->slug}"] : [],
+            'deleted' => ["content:tyre_model:{$this->slug}"],
+        };
     }
 
     /**
