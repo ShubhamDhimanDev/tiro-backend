@@ -27,6 +27,10 @@ class TyreSearchFilters
      */
     public function apply(Builder $query, array $filters): Builder
     {
+        if (isset($filters['q']) && is_string($filters['q']) && trim($filters['q']) !== '') {
+            $this->applyFreeText($query, trim($filters['q']));
+        }
+
         if ($brands = self::csv($filters['brand'] ?? null)) {
             $query->whereIn('brands.slug', $brands);
         }
@@ -81,6 +85,37 @@ class TyreSearchFilters
         }
 
         return $query;
+    }
+
+    /**
+     * Simple free-text search: every whitespace-separated term must match
+     * the brand, model name or SKU (AND across terms, OR across columns). A
+     * term like `205/55R16` or `205/55/16` also matches the variant's size.
+     *
+     * @param  Builder<TyreVariant>  $query
+     */
+    private function applyFreeText(Builder $query, string $text): void
+    {
+        foreach (array_slice(preg_split('/\s+/', $text) ?: [], 0, 6) as $term) {
+            $like = '%'.addcslashes($term, '\%_').'%';
+
+            $query->where(function (Builder $match) use ($like, $term): void {
+                $match->where('brands.name', 'like', $like)
+                    ->orWhere('tyre_models.name', 'like', $like)
+                    ->orWhere('tyre_variants.sku', 'like', $like);
+
+                if (preg_match('#^(\d{3})[/ ]?(\d{2})?[/ ]?[rR]?(\d{2})$#', $term, $size) === 1) {
+                    $match->orWhere(function (Builder $dimensions) use ($size): void {
+                        $dimensions->where('tyre_variants.width', (int) $size[1])
+                            ->where('tyre_variants.rim_diameter', (int) $size[3]);
+
+                        if ($size[2] !== '') {
+                            $dimensions->where('tyre_variants.profile', (int) $size[2]);
+                        }
+                    });
+                }
+            });
+        }
     }
 
     /**

@@ -15,13 +15,10 @@
         "laravel/fortify": "^1.37.2",
         "laravel/framework": "^13.17",
         "laravel/sanctum": "^4.3",
-        "laravel/scout": "^11.7",
         "laravel/tinker": "^3.0",
         "laravel/wayfinder": "^0.1.14",
-        "meilisearch/meilisearch-php": "^1.17",
         "paypal/paypal-server-sdk": "^2.3",
         "predis/predis": "^3.6",
-        "resend/resend-laravel": "^1.5",
         "spatie/laravel-permission": "*",
         "stripe/stripe-php": "^21.3"
     },

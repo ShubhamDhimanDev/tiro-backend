@@ -133,3 +133,15 @@ it('rejects invalid new filter values', function (string $query, string $field) 
     'bad type in list' => ['tyre_type=highway,flying', 'tyre_type'],
     'negative price' => ['price_min=-5', 'price_min'],
 ]);
+
+it('searches free text across brand, model name, sku and size', function () {
+    $michelin = filterVariant(['sku' => 'ZZ-100'], ['name' => 'Primacy 4'], Brand::factory()->create(['name' => 'Michelin', 'slug' => 'michelin']));
+    $other = filterVariant(['sku' => 'ZZ-200', 'width' => 225, 'profile' => 45, 'rim_diameter' => 17], ['name' => 'Eco Drive'], Brand::factory()->create(['name' => 'Hankook', 'slug' => 'hankook']));
+
+    expect(filterIds('q=michelin'))->toBe([$michelin->id])
+        ->and(filterIds('q=primacy'))->toBe([$michelin->id])
+        ->and(filterIds('q=ZZ-200'))->toBe([$other->id])
+        ->and(filterIds('q=michelin+primacy'))->toBe([$michelin->id])
+        ->and(filterIds('q='.urlencode('225/45R17')))->toBe([$other->id])
+        ->and(filterIds('q=nomatch'))->toBe([]);
+});

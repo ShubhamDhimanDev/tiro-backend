@@ -14,7 +14,6 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Str;
-use Laravel\Scout\Searchable;
 
 /**
  * The actual sellable SKU — one per size — routable as the PDP entity
@@ -48,7 +47,7 @@ use Laravel\Scout\Searchable;
 class TyreVariant extends Model implements RevalidatesFrontend
 {
     /** @use HasFactory<TyreVariantFactory> */
-    use HasFactory, Searchable;
+    use HasFactory;
 
     /**
      * The exact set of columns `GET /api/v1/tyres/{slug}`'s
@@ -145,58 +144,6 @@ class TyreVariant extends Model implements RevalidatesFrontend
     public function inventoryItems(): HasMany
     {
         return $this->hasMany(InventoryItem::class);
-    }
-
-    /**
-     * The Meilisearch index name — see `config/scout.php`'s
-     * `meilisearch.index-settings` for the filterable/sortable attributes
-     * that match `GET /api/v1/tyres`'s query params.
-     */
-    public function searchableAs(): string
-    {
-        return 'tyre_variants';
-    }
-
-    /**
-     * Only index variants belonging to an active model — a draft/archived
-     * model's variants shouldn't surface in search regardless of their own
-     * `status`.
-     */
-    public function shouldBeSearchable(): bool
-    {
-        return $this->status === Status::Active
-            && $this->loadMissing('tyreModel')->tyreModel?->status === Status::Active;
-    }
-
-    /**
-     * @return array<string, mixed>
-     */
-    public function toSearchableArray(): array
-    {
-        $this->loadMissing('tyreModel.brand');
-
-        return [
-            'id' => $this->id,
-            'sku' => $this->sku,
-            'slug' => $this->slug,
-            'width' => $this->width,
-            'profile' => $this->profile,
-            'rim_diameter' => $this->rim_diameter,
-            'load_index' => $this->load_index,
-            'speed_rating' => $this->speed_rating,
-            'sidewall' => $this->sidewall->value,
-            'status' => $this->status->value,
-            'base_price' => $this->base_price,
-            'tyre_model_id' => $this->tyre_model_id,
-            'tyre_model_name' => $this->tyreModel?->name,
-            'tyre_type' => $this->tyreModel?->tyre_type?->value,
-            'category' => $this->tyreModel?->category?->value,
-            'brand_id' => $this->tyreModel?->brand_id,
-            'brand_slug' => $this->tyreModel?->brand?->slug,
-            'brand_name' => $this->tyreModel?->brand?->name,
-            'released_at' => $this->tyreModel?->released_at?->timestamp,
-            'created_at' => $this->created_at?->timestamp,
-        ];
     }
 
     /**

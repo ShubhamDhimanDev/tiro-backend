@@ -27,7 +27,7 @@ use Illuminate\Support\Facades\Log;
  * the whole reason a synced local table is the correct design here.
  *
  * **Auth**: OAuth 2.0 user-delegated (3-legged) consent — materially
- * different from every other integration in this codebase (Stripe/Resend/
+ * different from every other integration in this codebase (Stripe/
  * MessageMedia each use a service account or static API key). A real
  * person managing Tiro's GBP listing has to click through a one-time
  * consent grant (`business.manage` scope) before

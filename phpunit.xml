@@ -26,12 +26,6 @@
         <env name="MAIL_MAILER" value="array"/>
         <env name="QUEUE_CONNECTION" value="sync"/>
         <env name="SESSION_DRIVER" value="array"/>
-        <!-- Scout syncs to the search engine synchronously (QUEUE_CONNECTION
-             is "sync" above) on every model save/delete; "null" keeps tests
-             fast and independent of whether the real Meilisearch server is
-             reachable, without needing per-test withoutSyncingToSearch()
-             calls. -->
-        <env name="SCOUT_DRIVER" value="null"/>
         <env name="PULSE_ENABLED" value="false"/>
         <env name="TELESCOPE_ENABLED" value="false"/>
         <env name="NIGHTWATCH_ENABLED" value="false"/>

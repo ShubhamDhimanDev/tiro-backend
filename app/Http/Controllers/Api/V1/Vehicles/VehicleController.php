@@ -17,12 +17,10 @@ use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
  * The manual make -> model -> year -> fitment picker — see
  * docs/architecture/02-api-contract.md's "Vehicle identification & fitment
  * endpoints" section. Only `status = active` `Vehicle` rows are ever
- * returned. Deliberately queries the database directly rather than routing
- * through Scout/Meilisearch: `make`/`model` are small, bounded, distinct
- * lookups against an indexed `(make, model, year_from, year_to)` column set
- * (see the `Vehicle` migration), not free-text search — the same reasoning
- * `TyreController` already documents for why `GET /api/v1/tyres` also
- * queries directly instead of via Scout.
+ * returned. Deliberately queries the database directly: `make`/`model` are
+ * small, bounded, distinct lookups against an indexed
+ * `(make, model, year_from, year_to)` column set (see the `Vehicle`
+ * migration), not free-text search.
  */
 class VehicleController extends Controller
 {
