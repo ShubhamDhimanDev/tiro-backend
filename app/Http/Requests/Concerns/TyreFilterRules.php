@@ -21,6 +21,7 @@ trait TyreFilterRules
     protected function tyreFilterRules(): array
     {
         return [
+            'q' => ['sometimes', 'nullable', 'string', 'max:100'],
             'brand' => ['sometimes', 'string', 'max:300', $this->csvOfPattern('/^[a-z0-9]+(?:-[a-z0-9]+)*$/')],
             'pattern' => ['sometimes', 'string', 'max:600', $this->csvOfPattern('/^[a-z0-9]+(?:-[a-z0-9]+)*$/')],
             'tyre_type' => ['sometimes', 'string', $this->csvOfValues(array_column(TyreType::cases(), 'value'))],

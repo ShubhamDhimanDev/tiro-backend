@@ -28,13 +28,9 @@ use Illuminate\Pagination\LengthAwarePaginator;
 /**
  * `TyreVariant`-level search/browse + PDP endpoints — see
  * docs/architecture/02-api-contract.md's "Catalogue & location endpoints"
- * section. Deliberately queries the database directly rather than routing
- * through Scout/Meilisearch: every documented query param is a structured
- * exact-match/range filter (no free-text `q` param exists yet), so plain
- * indexed `WHERE`s are simpler and don't couple core browsing to an
- * external service's uptime. `TyreVariant` is still wired as `Searchable`
- * (see the model) so a future free-text search can be added without a
- * schema change.
+ * section. Queries the database directly: structured filters are plain
+ * indexed `WHERE`s, and the optional free-text `q` param is a simple `LIKE`
+ * match (see {@see TyreSearchFilters}).
  */
 class TyreController extends Controller
 {
