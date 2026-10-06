@@ -1,3 +1,4 @@
+import { formatDate } from '@/lib/date';
 import { Head, router, useForm } from '@inertiajs/react';
 import { useEffect, useRef, useState } from 'react';
 import OrderController from '@/actions/App/Http/Controllers/Admin/Orders/OrderController';
@@ -562,7 +563,10 @@ export default function OrderShow({
                                     <>
                                         <div className="flex items-center justify-between">
                                             <span>
-                                                {order.booking.scheduled_date}
+                                                {formatDate(
+                                                    order.booking
+                                                        .scheduled_date,
+                                                )}
                                             </span>
                                             <Badge
                                                 variant={bookingStatusBadgeVariant(
