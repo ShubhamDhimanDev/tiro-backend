@@ -8,6 +8,7 @@ use App\Enums\TyreCategory;
 use App\Enums\TyreConstruction;
 use App\Enums\TyreSidewall;
 use App\Enums\TyreType;
+use App\Jobs\LocalizeModelImagesJob;
 use App\Models\Brand;
 use App\Models\TyreModel;
 use App\Models\TyreVariant;
@@ -172,6 +173,7 @@ class CatalogImportService
         $modelsUpdated = 0;
         $variantsCreated = 0;
         $variantsUpdated = 0;
+        $touchedModelIds = [];
 
         DB::beginTransaction();
 
@@ -290,6 +292,8 @@ class CatalogImportService
                     $modelsUpdated++;
                 }
 
+                $touchedModelIds[] = $tyreModel->id;
+
                 foreach ($validEntries as $entry) {
                     $data = $entry['data'];
 
@@ -327,6 +331,14 @@ class CatalogImportService
                 DB::rollBack();
             } else {
                 DB::commit();
+
+                // Supplier image URLs live on another server: pull them into
+                // our own storage (as WebP) in the background.
+                if (config('media.localize_on_import')) {
+                    foreach (array_unique($touchedModelIds) as $tyreModelId) {
+                        LocalizeModelImagesJob::dispatch($tyreModelId);
+                    }
+                }
             }
         } catch (Throwable $e) {
             DB::rollBack();

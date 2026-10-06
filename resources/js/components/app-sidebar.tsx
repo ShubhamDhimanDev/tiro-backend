@@ -4,6 +4,7 @@ import {
     CalendarClock,
     Car,
     FileText,
+    Images,
     LayoutGrid,
     MapPin,
     Package,
@@ -17,6 +18,7 @@ import {
 } from 'lucide-react';
 import AuditLogController from '@/actions/App/Http/Controllers/Admin/AuditLogController';
 import DispatchBoardController from '@/actions/App/Http/Controllers/Admin/Bookings/DispatchBoardController';
+import MediaController from '@/actions/App/Http/Controllers/Admin/Media/MediaController';
 import ContentPageController from '@/actions/App/Http/Controllers/Admin/Content/ContentPageController';
 import CustomerController from '@/actions/App/Http/Controllers/Admin/Customers/CustomerController';
 import OrderController from '@/actions/App/Http/Controllers/Admin/Orders/OrderController';
@@ -157,6 +159,12 @@ const contentNavItems: PermissionNavItem[] = [
         title: 'Content',
         href: ContentPageController.index().url,
         icon: FileText,
+        permissions: ['content.view', 'content.manage'],
+    },
+    {
+        title: 'Media',
+        href: MediaController.index().url,
+        icon: Images,
         permissions: ['content.view', 'content.manage'],
     },
     {
