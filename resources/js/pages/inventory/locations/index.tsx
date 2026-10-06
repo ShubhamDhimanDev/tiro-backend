@@ -1,3 +1,4 @@
+import { ListToolbar, useListFilter } from '@/components/list-toolbar';
 import { router, useForm } from '@inertiajs/react';
 import { Head, Link } from '@inertiajs/react';
 import { useState } from 'react';
@@ -301,6 +302,11 @@ export default function StockLocationsIndex({
     stockLocations: StockLocation[];
     serviceZones: ZoneOption[];
 }) {
+    const list = useListFilter(stockLocations, {
+        placeholder: 'Search stock locations by name or address…',
+        searchText: (i) => [i.name, i.address],
+    });
+
     return (
         <>
             <Head title="Stock Locations" />
@@ -325,6 +331,7 @@ export default function StockLocationsIndex({
                         </CardDescription>
                     </CardHeader>
                     <CardContent>
+                        <ListToolbar {...list.toolbarProps} />
                         {stockLocations.length === 0 ? (
                             <p className="text-muted-foreground text-sm">
                                 No stock locations yet.
@@ -349,7 +356,7 @@ export default function StockLocationsIndex({
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    {stockLocations.map((location) => (
+                                    {list.filtered.map((location) => (
                                         <tr
                                             key={location.id}
                                             className="border-b align-top last:border-0"

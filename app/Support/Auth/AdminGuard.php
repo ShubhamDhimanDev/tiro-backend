@@ -18,7 +18,7 @@ final class AdminGuard
 {
     /**
      * For call sites guaranteed to run behind `auth` (web-guard) middleware
-     * — Settings controllers, `EnsureTwoFactorEnabled`, etc. Throws if
+     * — Settings controllers, etc. Throws if
      * unauthenticated or resolved as anything other than `User`; both are a
      * genuine bug at these call sites, not a state to degrade from.
      */

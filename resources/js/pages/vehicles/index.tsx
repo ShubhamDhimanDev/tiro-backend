@@ -1,3 +1,4 @@
+import { ListToolbar, useListFilter } from '@/components/list-toolbar';
 import { router, useForm } from '@inertiajs/react';
 import { Head } from '@inertiajs/react';
 import { useState } from 'react';
@@ -556,6 +557,16 @@ function DeleteVehicleDialog({ vehicle }: { vehicle: Vehicle }) {
 }
 
 export default function VehiclesIndex({ vehicles }: { vehicles: Vehicle[] }) {
+    const list = useListFilter(vehicles, {
+        placeholder: 'Search vehicles by make, model or series…',
+        searchText: (i) => [i.make, i.model, i.series, i.slug],
+        filters: {
+            Status: { label: 'Status', get: (i) => i.status },
+            Make: { label: 'Make', get: (i) => i.make },
+            BodyType: { label: 'Body type', get: (i) => i.body_type },
+        },
+    });
+
     return (
         <>
             <Head title="Vehicles" />
@@ -575,6 +586,7 @@ export default function VehiclesIndex({ vehicles }: { vehicles: Vehicle[] }) {
                     </CardDescription>
                 </CardHeader>
                 <CardContent>
+                    <ListToolbar {...list.toolbarProps} />
                     {vehicles.length === 0 ? (
                         <p className="text-muted-foreground text-sm">
                             No vehicles yet.
@@ -595,7 +607,7 @@ export default function VehiclesIndex({ vehicles }: { vehicles: Vehicle[] }) {
                                 </tr>
                             </thead>
                             <tbody>
-                                {vehicles.map((vehicle) => (
+                                {list.filtered.map((vehicle) => (
                                     <tr
                                         key={vehicle.id}
                                         className="border-b last:border-0"

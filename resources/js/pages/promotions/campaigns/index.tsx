@@ -1,3 +1,5 @@
+import { ListToolbar, useListFilter } from '@/components/list-toolbar';
+import { formatDate, toDateInputValue } from '@/lib/date';
 import { Head, router, useForm } from '@inertiajs/react';
 import { useState } from 'react';
 import PromotionController from '@/actions/App/Http/Controllers/Admin/Promotions/PromotionController';
@@ -368,8 +370,8 @@ function PromotionFormDialog({
                 : promotion.type === 'percentage'
                   ? String(promotion.value)
                   : centsToDollarsInput(promotion.value),
-        starts_at: promotion?.starts_at ?? '',
-        ends_at: promotion?.ends_at ?? '',
+        starts_at: toDateInputValue(promotion?.starts_at),
+        ends_at: toDateInputValue(promotion?.ends_at),
         usage_limit:
             promotion?.usage_limit === null ||
             promotion?.usage_limit === undefined
@@ -688,6 +690,15 @@ export default function PromotionsCampaignsIndex({
         serviceZones,
     };
 
+    const list = useListFilter(promotions, {
+        placeholder: 'Search promotions by name…',
+        searchText: (i) => [i.name],
+        filters: {
+            Status: { label: 'Status', get: (i) => i.status },
+            Type: { label: 'Type', get: (i) => i.type },
+        },
+    });
+
     return (
         <>
             <Head title="Promotion campaigns" />
@@ -708,6 +719,7 @@ export default function PromotionsCampaignsIndex({
                     </CardDescription>
                 </CardHeader>
                 <CardContent>
+                    <ListToolbar {...list.toolbarProps} />
                     {promotions.length === 0 ? (
                         <p className="text-muted-foreground text-sm">
                             No promotions yet.
@@ -729,7 +741,7 @@ export default function PromotionsCampaignsIndex({
                                 </tr>
                             </thead>
                             <tbody>
-                                {promotions.map((promotion) => (
+                                {list.filtered.map((promotion) => (
                                     <tr
                                         key={promotion.id}
                                         className="border-b last:border-0"
@@ -754,8 +766,8 @@ export default function PromotionsCampaignsIndex({
                                                 : formatCents(promotion.value)}
                                         </td>
                                         <td className="text-muted-foreground py-2">
-                                            {promotion.starts_at} –{' '}
-                                            {promotion.ends_at}
+                                            {formatDate(promotion.starts_at)} –{' '}
+                                            {formatDate(promotion.ends_at)}
                                         </td>
                                         <td className="text-muted-foreground py-2">
                                             {promotion.usage_count}

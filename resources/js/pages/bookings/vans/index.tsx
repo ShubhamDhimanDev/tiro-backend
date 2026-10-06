@@ -1,3 +1,4 @@
+import { ListToolbar, useListFilter } from '@/components/list-toolbar';
 import { useForm } from '@inertiajs/react';
 import { Head } from '@inertiajs/react';
 import { useState } from 'react';
@@ -233,6 +234,14 @@ export default function VansIndex({
     vans: Van[];
     stockLocations: Pick<StockLocation, 'id' | 'name'>[];
 }) {
+    const list = useListFilter(vans, {
+        placeholder: 'Search vans by name or rego…',
+        searchText: (i) => [i.name, i.rego, i.home_stock_location?.name],
+        filters: {
+            Status: { label: 'Status', get: (i) => i.status },
+        },
+    });
+
     return (
         <>
             <Head title="Vans" />
@@ -256,6 +265,7 @@ export default function VansIndex({
                         <CardTitle>Vans</CardTitle>
                     </CardHeader>
                     <CardContent>
+                        <ListToolbar {...list.toolbarProps} />
                         {vans.length === 0 ? (
                             <p className="text-muted-foreground text-sm">
                                 No vans yet.
@@ -286,7 +296,7 @@ export default function VansIndex({
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    {vans.map((van) => (
+                                    {list.filtered.map((van) => (
                                         <tr
                                             key={van.id}
                                             className="border-b last:border-0"

@@ -1,3 +1,4 @@
+import { ListToolbar, useListFilter } from '@/components/list-toolbar';
 import { router, useForm } from '@inertiajs/react';
 import { Head } from '@inertiajs/react';
 import { useMemo, useState } from 'react';
@@ -430,6 +431,16 @@ export default function ServiceZonesIndex({
     states: State[];
     suburbs: Suburb[];
 }) {
+    const list = useListFilter(serviceZones, {
+        placeholder: 'Search zones by name or state…',
+        searchText: (i) => [i.name, i.state?.name, i.state?.code],
+        filters: {
+            Status: { label: 'Status', get: (i) => i.status },
+            Type: { label: 'Type', get: (i) => i.type },
+            State: { label: 'State', get: (i) => i.state?.code },
+        },
+    });
+
     return (
         <>
             <Head title="Service Zones" />
@@ -453,6 +464,7 @@ export default function ServiceZonesIndex({
                     </CardDescription>
                 </CardHeader>
                 <CardContent>
+                    <ListToolbar {...list.toolbarProps} />
                     {serviceZones.length === 0 ? (
                         <p className="text-muted-foreground text-sm">
                             No service zones yet.
@@ -475,7 +487,7 @@ export default function ServiceZonesIndex({
                                 </tr>
                             </thead>
                             <tbody>
-                                {serviceZones.map((zone) => (
+                                {list.filtered.map((zone) => (
                                     <tr
                                         key={zone.id}
                                         className="border-b last:border-0"

@@ -10,6 +10,7 @@ use App\Models\Order;
 use App\Models\PriceGuaranteeClaim;
 use App\Models\PriceRule;
 use App\Models\Promotion;
+use App\Models\TyreVariant;
 use App\Models\User;
 use App\Observers\ContentPageObserver;
 use App\Observers\FaqObserver;
@@ -65,6 +66,7 @@ class AuditLogQueryService
         Role::class,
         ContentPage::class,
         Faq::class,
+        TyreVariant::class,
     ];
 
     /**

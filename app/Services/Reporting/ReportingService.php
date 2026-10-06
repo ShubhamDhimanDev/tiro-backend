@@ -54,7 +54,7 @@ class ReportingService
      *
      * @var list<OrderStatus>
      */
-    private const REVENUE_STATUSES = [
+    public const REVENUE_STATUSES = [
         OrderStatus::Confirmed,
         OrderStatus::RefundRequired,
         OrderStatus::Completed,

@@ -1,3 +1,4 @@
+import { ListToolbar, useListFilter } from '@/components/list-toolbar';
 import { Head, router } from '@inertiajs/react';
 import ContentPageController from '@/actions/App/Http/Controllers/Admin/Content/ContentPageController';
 import FaqController from '@/actions/App/Http/Controllers/Admin/Content/FaqController';
@@ -41,6 +42,15 @@ export default function FaqsIndex({
     faqs: Faq[];
     contentPages: { id: number; title: string; type: ContentPageType }[];
 }) {
+    const list = useListFilter(faqs, {
+        placeholder: 'Search FAQs by question, answer or category…',
+        searchText: (i) => [i.question, i.answer, i.category],
+        filters: {
+            Status: { label: 'Status', get: (i) => i.status },
+            Category: { label: 'Category', get: (i) => i.category },
+        },
+    });
+
     return (
         <>
             <Head title="FAQs" />
@@ -61,6 +71,7 @@ export default function FaqsIndex({
                     </CardDescription>
                 </CardHeader>
                 <CardContent>
+                    <ListToolbar {...list.toolbarProps} />
                     {faqs.length === 0 ? (
                         <p className="text-muted-foreground text-sm">
                             No FAQs yet.
@@ -84,7 +95,7 @@ export default function FaqsIndex({
                                 </tr>
                             </thead>
                             <tbody>
-                                {faqs.map((faq) => (
+                                {list.filtered.map((faq) => (
                                     <tr
                                         key={faq.id}
                                         className="border-b last:border-0"

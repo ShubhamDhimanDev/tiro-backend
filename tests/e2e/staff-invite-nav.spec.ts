@@ -133,7 +133,7 @@ test('a super_admin can reach Roles & Users via the real sidebar link and submit
     await page.locator('input[name="code"]').fill(totp(e2eAdminTotpSecret));
     await page.getByRole('button', { name: /continue/i }).click();
 
-    await page.waitForURL(`${BASE_URL}/dashboard`);
+    await page.waitForURL(`${BASE_URL}/admin/dashboard`);
 
     // The regression under test: click the *rendered* nav link, never
     // `route()` or `page.goto()` straight to the destination -- that's

@@ -32,10 +32,9 @@ use App\Http\Controllers\Admin\Reviews\ReviewController;
 use App\Http\Controllers\Admin\UserController;
 use App\Http\Controllers\Admin\Vehicles\VehicleController;
 use App\Http\Controllers\Admin\Vehicles\VehicleFitmentImportController;
-use App\Http\Middleware\EnsureTwoFactorEnabled;
 use Illuminate\Support\Facades\Route;
 
-Route::middleware(['auth', 'verified', EnsureTwoFactorEnabled::class])
+Route::middleware(['auth', 'verified'])
     ->prefix('admin')
     ->name('admin.')
     ->group(function () {

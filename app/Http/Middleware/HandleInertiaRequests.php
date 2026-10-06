@@ -46,6 +46,9 @@ class HandleInertiaRequests extends Middleware
                 'roles' => $user?->getRoleNames(),
                 'permissions' => $user?->getAllPermissions()->pluck('name'),
             ],
+            // Drives the dismissible "enable 2FA" announcement bar; 2FA is
+            // encouraged, not enforced, so this never blocks navigation.
+            'twoFactorSetupRequired' => $user !== null && ! $user->hasSatisfiedTwoFactor(),
             'sidebarOpen' => ! $request->hasCookie('sidebar_state') || $request->cookie('sidebar_state') === 'true',
         ];
     }

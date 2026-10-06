@@ -20,7 +20,13 @@ import type { PermissionNavItem } from '@/types';
  * placeholder — most modules land in later phases, this is a skeleton
  * for the eventual full nav, not full nav wiring.
  */
-export function NavModules({ items }: { items: PermissionNavItem[] }) {
+export function NavModules({
+    title,
+    items,
+}: {
+    title: string;
+    items: PermissionNavItem[];
+}) {
     const { hasAnyPermission } = usePermissions();
     const { isCurrentUrl } = useCurrentUrl();
 
@@ -34,7 +40,7 @@ export function NavModules({ items }: { items: PermissionNavItem[] }) {
 
     return (
         <SidebarGroup className="px-2 py-0">
-            <SidebarGroupLabel>Management</SidebarGroupLabel>
+            <SidebarGroupLabel>{title}</SidebarGroupLabel>
             <SidebarMenu>
                 {visibleItems.map((item) =>
                     item.href ? (

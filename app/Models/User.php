@@ -63,4 +63,14 @@ class User extends Authenticatable implements MustVerifyEmail, PasskeyUser
             'two_factor_confirmed_at' => 'datetime',
         ];
     }
+
+    /**
+     * A confirmed TOTP secret or a registered passkey both satisfy the 2FA
+     * requirement — a passkey is treated as equivalent to, not additional
+     * to, TOTP (see 07-admin-auth-permissions.md §4).
+     */
+    public function hasSatisfiedTwoFactor(): bool
+    {
+        return $this->two_factor_confirmed_at !== null || $this->passkeys()->exists();
+    }
 }

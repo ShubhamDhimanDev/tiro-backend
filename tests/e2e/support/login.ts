@@ -27,5 +27,5 @@ export async function loginWithTotp(
     await page.locator('input[name="code"]').fill(totp(totpSecret));
     await page.getByRole('button', { name: /continue/i }).click();
 
-    await page.waitForURL(`${baseUrl}/dashboard`);
+    await page.waitForURL(`${baseUrl}/admin/dashboard`);
 }
