@@ -279,3 +279,33 @@ test('a product editor can upload from the picker over JSON and poll the convers
         'files' => [UploadedFile::fake()->createWithContent('x.png', pngBinary(10, 10))],
     ])->assertForbidden();
 });
+
+test('media:localize-images --dry-run reports without queueing or downloading', function () {
+    Queue::fake();
+    Http::fake();
+    modelWithImages(['https://old.example/a.jpg']);
+
+    $this->artisan('media:localize-images', ['--dry-run' => true])
+        ->expectsOutputToContain('1 tyre model(s) reference 1 distinct remote image(s)')
+        ->assertSuccessful();
+
+    Queue::assertNothingPushed();
+    Http::assertNothingSent();
+});
+
+test('media:localize-images --sync downloads, converts and rewrites the products', function () {
+    Http::fake(['https://old.example/*' => Http::response(pngBinary(500, 500), 200, ['Content-Type' => 'image/png'])]);
+    $model = modelWithImages(['https://old.example/a.jpg']);
+    $other = modelWithImages(['https://old.example/b.jpg']);
+
+    $this->artisan('media:localize-images', ['--sync' => true, '--model' => $model->id])->assertSuccessful();
+
+    expect(Media::isLocalUrl($model->refresh()->images[0]))->toBeTrue()
+        ->and($other->refresh()->images)->toBe(['https://old.example/b.jpg']);
+    Storage::disk('public')->assertExists(Media::query()->sole()->path);
+
+    // Re-running finds nothing left for that model.
+    $this->artisan('media:localize-images', ['--model' => $model->id])
+        ->expectsOutputToContain('Nothing to do')
+        ->assertSuccessful();
+});
