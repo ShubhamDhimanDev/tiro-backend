@@ -207,10 +207,7 @@ function MediaCard({ item }: { item: MediaItem }) {
                         {STATUS_LABELS[item.status]}
                     </Badge>
                     {item.used_by > 0 && (
-                        <Badge variant="outline">
-                            Used by {item.used_by} model
-                            {item.used_by === 1 ? '' : 's'}
-                        </Badge>
+                        <Badge variant="outline">In use ({item.used_by})</Badge>
                     )}
                     {item.source_url && (
                         <Badge variant="outline">Imported</Badge>
@@ -269,7 +266,7 @@ function MediaCard({ item }: { item: MediaItem }) {
                             disabled={item.used_by > 0}
                             title={
                                 item.used_by > 0
-                                    ? 'In use — remove it from the model first'
+                                    ? 'In use — remove it where it is used first'
                                     : 'Delete'
                             }
                             onClick={remove}
@@ -331,7 +328,7 @@ export default function MediaIndex({
             <div className="space-y-6 p-4">
                 <Heading
                     title="Media"
-                    description="Upload images once; they are converted to WebP in the background. Copy a ready image's URL into a tyre model's images."
+                    description="Upload images once; they are converted to WebP in the background. Pick them from the Choose from media button when editing a tyre model, brand or content page."
                 />
 
                 <Can permission="content.manage">

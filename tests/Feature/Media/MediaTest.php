@@ -5,6 +5,7 @@ use App\Enums\Status;
 use App\Jobs\LocalizeModelImagesJob;
 use App\Jobs\ProcessMediaJob;
 use App\Models\Brand;
+use App\Models\ContentPage;
 use App\Models\Media;
 use App\Models\TyreModel;
 use App\Models\User;
@@ -219,4 +220,62 @@ test('the media manager lists, searches and filters, and refuses to delete a use
     $this->actingAs($admin)->delete(route('admin.media.destroy', $unused))->assertRedirect();
     expect(Media::query()->whereKey($unused->id)->exists())->toBeFalse();
     Storage::disk('public')->assertMissing($unused->path);
+});
+
+test('the picker feed lists only ready images, searchable, for anyone who edits products', function () {
+    $ready = Media::factory()->ready()->create(['original_name' => 'alventi-front.jpg']);
+    Media::factory()->ready()->create(['original_name' => 'other.jpg']);
+    Media::factory()->failed()->create(['original_name' => 'alventi-broken.jpg']);
+    Media::factory()->create(['original_name' => 'alventi-queued.jpg']);
+
+    $productsManager = User::factory()->withTwoFactor()->create();
+    $productsManager->assignRole('ecommerce');
+
+    $this->actingAs($productsManager)->getJson(route('admin.media.picker'))
+        ->assertOk()
+        ->assertJsonCount(2, 'data')
+        ->assertJsonStructure(['data' => [['id', 'name', 'url', 'thumb_url']], 'last_page']);
+
+    $this->actingAs($productsManager)->getJson(route('admin.media.picker', ['search' => 'alventi']))
+        ->assertOk()
+        ->assertJsonCount(1, 'data')
+        ->assertJsonPath('data.0.url', $ready->url());
+
+    $outsider = User::factory()->withTwoFactor()->create();
+    $this->actingAs($outsider)->getJson(route('admin.media.picker'))->assertForbidden();
+});
+
+test('an image used as a brand logo or content page image counts as in use', function () {
+    $media = Media::factory()->ready()->create();
+    expect($media->usageCount())->toBe(0);
+
+    Brand::factory()->create(['logo_path' => $media->url()]);
+    ContentPage::factory()->create(['featured_image_path' => $media->url()]);
+
+    expect($media->usageCount())->toBe(2);
+});
+
+test('a product editor can upload from the picker over JSON and poll the conversion status', function () {
+    Queue::fake();
+    $editor = User::factory()->withTwoFactor()->create();
+    $editor->assignRole('ecommerce');
+
+    $response = $this->actingAs($editor)->postJson(route('admin.media.store'), [
+        'files' => [UploadedFile::fake()->createWithContent('new.png', pngBinary(300, 300))],
+    ])->assertCreated()->assertJsonPath('data.0.status', 'pending');
+
+    $id = $response->json('data.0.id');
+    Queue::assertPushed(ProcessMediaJob::class, fn ($job) => $job->mediaId === $id);
+
+    (new ProcessMediaJob($id))->handle(app(MediaLibrary::class));
+
+    $this->actingAs($editor)->getJson(route('admin.media.status', ['ids' => (string) $id]))
+        ->assertOk()
+        ->assertJsonPath('data.0.status', 'ready')
+        ->assertJsonPath('data.0.url', Media::query()->find($id)->url());
+
+    $outsider = User::factory()->withTwoFactor()->create();
+    $this->actingAs($outsider)->postJson(route('admin.media.store'), [
+        'files' => [UploadedFile::fake()->createWithContent('x.png', pngBinary(10, 10))],
+    ])->assertForbidden();
 });

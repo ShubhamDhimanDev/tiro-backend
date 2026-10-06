@@ -302,8 +302,18 @@ Route::middleware(['auth', 'verified'])
         Route::middleware('permission:content.view')->group(function () {
             Route::get('media', [MediaController::class, 'index'])->name('media.index');
         });
-        Route::middleware('permission:content.manage')->group(function () {
+        // Picker feed for the forms that choose an image — also open to anyone
+        // who edits products, which is where most images are chosen.
+        Route::middleware('permission:content.view|content.manage|products.manage')->group(function () {
+            Route::get('media/picker', [MediaController::class, 'picker'])->name('media.picker');
+        });
+        // Uploading from the picker dialog: product editors can add images
+        // while editing a product without needing the wider content role.
+        Route::middleware('permission:content.manage|products.manage')->group(function () {
             Route::post('media', [MediaController::class, 'store'])->name('media.store');
+            Route::get('media/status', [MediaController::class, 'status'])->name('media.status');
+        });
+        Route::middleware('permission:content.manage')->group(function () {
             Route::post('media/{media}/retry', [MediaController::class, 'retry'])->name('media.retry');
             Route::delete('media/{media}', [MediaController::class, 'destroy'])->name('media.destroy');
         });

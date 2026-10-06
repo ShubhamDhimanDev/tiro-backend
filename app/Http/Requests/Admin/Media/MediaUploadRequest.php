@@ -10,7 +10,7 @@ class MediaUploadRequest extends FormRequest
 {
     public function authorize(): bool
     {
-        return AdminGuard::optionalUser($this)?->can('content.manage') ?? false;
+        return AdminGuard::optionalUser($this)?->hasAnyPermission(['content.manage', 'products.manage']) ?? false;
     }
 
     /**

@@ -1,3 +1,4 @@
+import { ImageField } from '@/components/image-field';
 import { ListToolbar, useListFilter } from '@/components/list-toolbar';
 import { useForm } from '@inertiajs/react';
 import { Head, Link } from '@inertiajs/react';
@@ -144,14 +145,11 @@ function BrandFormDialog({ brand }: { brand?: Brand }) {
                     </div>
 
                     <div className="grid gap-2">
-                        <Label htmlFor="logo_path">Logo URL / path</Label>
-                        <Input
+                        <ImageField
                             id="logo_path"
-                            placeholder="https://…"
+                            label="Logo"
                             value={form.data.logo_path}
-                            onChange={(e) =>
-                                form.setData('logo_path', e.target.value)
-                            }
+                            onChange={(v) => form.setData('logo_path', v)}
                         />
                         <InputError message={form.errors.logo_path} />
                     </div>
