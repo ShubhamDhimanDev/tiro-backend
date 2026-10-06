@@ -37,6 +37,20 @@ it('returns the PDP static-content shape for an active variant', function () {
         ->assertJsonPath('data.slug', $variant->slug);
 });
 
+it('returns empty arrays, not null, for a model with no service_inclusions or images (as the catalog import creates)', function () {
+    $model = TyreModel::factory()->for(Brand::factory())->create([
+        'status' => Status::Active,
+        'service_inclusions' => null,
+        'images' => null,
+    ]);
+    $variant = TyreVariant::factory()->for($model, 'tyreModel')->create(['status' => Status::Active]);
+
+    $this->getJson("/api/v1/tyres/{$variant->slug}")
+        ->assertOk()
+        ->assertJsonPath('data.tyre_model.service_inclusions', [])
+        ->assertJsonPath('data.tyre_model.images', []);
+});
+
 it('returns 404 for a slug that does not exist', function () {
     $response = $this->getJson('/api/v1/tyres/does-not-exist');
 
