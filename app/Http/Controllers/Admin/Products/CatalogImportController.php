@@ -4,9 +4,12 @@ namespace App\Http\Controllers\Admin\Products;
 
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Admin\Products\CatalogImportRequest;
+use App\Models\AuditLog;
+use App\Models\TyreVariant;
 use App\Services\Products\CatalogImportResult;
 use App\Services\Products\CatalogImportService;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -36,9 +39,49 @@ class CatalogImportController extends Controller
         $rows = $this->decodeRows($file);
         $result = $importer->import($rows, $request->boolean('dry_run'));
 
+        $this->recordImport($request, $file, $result);
+
         return Inertia::render('products/import', [
             'result' => $this->serializeResult($result),
         ]);
+    }
+
+    /**
+     * One `AuditLog` row per upload (dry runs included, under their own
+     * action), plus a `laravel.log` line. The log is anchored on
+     * `TyreVariant` with id 0 because an import isn't about a single record;
+     * the per-row errors/warnings/skips are kept (capped) in `after`.
+     */
+    private function recordImport(CatalogImportRequest $request, UploadedFile $file, CatalogImportResult $result): void
+    {
+        $cap = 100;
+        $summary = [
+            'file' => $file->getClientOriginalName(),
+            'dry_run' => $result->dryRun,
+            'rows_processed' => $result->rowsProcessed,
+            'brands_created' => $result->brandsCreated,
+            'brands_matched' => $result->brandsMatched,
+            'models_created' => $result->modelsCreated,
+            'models_updated' => $result->modelsUpdated,
+            'variants_created' => $result->variantsCreated,
+            'variants_updated' => $result->variantsUpdated,
+            'error_count' => count($result->errors),
+            'warning_count' => count($result->warnings),
+            'skipped_count' => count($result->skipped),
+            'errors' => array_slice($result->errors, 0, $cap),
+            'skipped' => array_slice($result->skipped, 0, $cap),
+        ];
+
+        AuditLog::create([
+            'auditable_type' => TyreVariant::class,
+            'auditable_id' => 0,
+            'action' => $result->dryRun ? 'catalog.import_dry_run' : 'catalog.imported',
+            'actor_id' => $request->user()?->id,
+            'before' => null,
+            'after' => $summary,
+        ]);
+
+        Log::info('Catalog import finished.', ['actor_id' => $request->user()?->id, ...array_diff_key($summary, ['errors' => 1, 'skipped' => 1])]);
     }
 
     /**

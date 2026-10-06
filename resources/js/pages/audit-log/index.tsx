@@ -1,3 +1,4 @@
+import { formatDateTime, isIsoDateTime } from '@/lib/date';
 import { Head, Link, router } from '@inertiajs/react';
 import { Fragment, useState } from 'react';
 import type { FormEvent } from 'react';
@@ -67,7 +68,7 @@ function formatDiffValue(value: unknown): string {
     }
 
     if (typeof value === 'string') {
-        return value;
+        return isIsoDateTime(value) ? formatDateTime(value) : value;
     }
 
     if (
