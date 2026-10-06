@@ -17,6 +17,7 @@ use App\Http\Controllers\Admin\Locations\ServiceZoneController;
 use App\Http\Controllers\Admin\Locations\ServiceZoneSuburbController;
 use App\Http\Controllers\Admin\Locations\StateController;
 use App\Http\Controllers\Admin\Locations\SuburbController;
+use App\Http\Controllers\Admin\Media\MediaController;
 use App\Http\Controllers\Admin\Orders\OrderController;
 use App\Http\Controllers\Admin\Orders\OrderRefundController;
 use App\Http\Controllers\Admin\Products\BrandController;
@@ -293,6 +294,18 @@ Route::middleware(['auth', 'verified'])
         Route::middleware('permission:content.manage')->group(function () {
             Route::patch('reviews/{review}', [ReviewController::class, 'update'])->name('reviews.update');
             Route::post('reviews/resync', [ReviewController::class, 'resync'])->name('reviews.resync');
+        });
+
+        // Media manager — upload images (converted to WebP by a queued job),
+        // retry failures, delete unused files. Same `content.*` pair as the
+        // rest of the Content module.
+        Route::middleware('permission:content.view')->group(function () {
+            Route::get('media', [MediaController::class, 'index'])->name('media.index');
+        });
+        Route::middleware('permission:content.manage')->group(function () {
+            Route::post('media', [MediaController::class, 'store'])->name('media.store');
+            Route::post('media/{media}/retry', [MediaController::class, 'retry'])->name('media.retry');
+            Route::delete('media/{media}', [MediaController::class, 'destroy'])->name('media.destroy');
         });
 
         // Reporting — 5 live-query dashboards (sales/bookings/conversion/
