@@ -76,13 +76,23 @@ class Media extends Model
     }
 
     /**
-     * Number of tyre models whose `images` list uses this file.
+     * How many places use this file: tyre models listing it in `images`,
+     * brands using it as the logo, content pages using it as the featured or
+     * Open Graph image. A used image can't be deleted.
      */
     public function usageCount(): int
     {
         $url = $this->url();
 
-        return $url === null ? 0 : TyreModel::query()->whereJsonContains('images', $url)->count();
+        if ($url === null) {
+            return 0;
+        }
+
+        return TyreModel::query()->whereJsonContains('images', $url)->count()
+            + Brand::query()->where('logo_path', $url)->count()
+            + ContentPage::query()
+                ->where(fn ($query) => $query->where('featured_image_path', $url)->orWhere('og_image_path', $url))
+                ->count();
     }
 
     /**

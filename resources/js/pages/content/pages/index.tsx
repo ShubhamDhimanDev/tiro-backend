@@ -1,3 +1,4 @@
+import { ImageField } from '@/components/image-field';
 import { ListToolbar, useListFilter } from '@/components/list-toolbar';
 import { Head, router, useForm } from '@inertiajs/react';
 import { useState } from 'react';
@@ -336,18 +337,12 @@ function ContentPageFormDialog({
                     </div>
 
                     <div className="grid gap-2">
-                        <Label htmlFor="featured_image_path">
-                            Featured image URL / path (optional)
-                        </Label>
-                        <Input
+                        <ImageField
                             id="featured_image_path"
-                            placeholder="https://…"
+                            label="Featured image (optional)"
                             value={form.data.featured_image_path}
-                            onChange={(e) =>
-                                form.setData(
-                                    'featured_image_path',
-                                    e.target.value,
-                                )
+                            onChange={(v) =>
+                                form.setData('featured_image_path', v)
                             }
                         />
                         <InputError message={form.errors.featured_image_path} />
@@ -393,18 +388,12 @@ function ContentPageFormDialog({
                                 />
                             </div>
                             <div className="grid gap-2">
-                                <Label htmlFor="og_image_path">
-                                    Open Graph image URL / path
-                                </Label>
-                                <Input
+                                <ImageField
                                     id="og_image_path"
-                                    placeholder="https://…"
+                                    label="Open Graph image"
                                     value={form.data.og_image_path}
-                                    onChange={(e) =>
-                                        form.setData(
-                                            'og_image_path',
-                                            e.target.value,
-                                        )
+                                    onChange={(v) =>
+                                        form.setData('og_image_path', v)
                                     }
                                 />
                                 <InputError

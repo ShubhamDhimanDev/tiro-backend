@@ -1,3 +1,4 @@
+import { ImageListEditor } from '@/components/image-list-editor';
 import { ListToolbar, useListFilter } from '@/components/list-toolbar';
 import { useForm } from '@inertiajs/react';
 import { Head, Link } from '@inertiajs/react';
@@ -339,12 +340,10 @@ function TyreModelFormDialog({
                     />
                     <InputError message={form.errors.service_inclusions} />
 
-                    <StringListEditor
+                    <ImageListEditor
                         label="Images"
                         values={form.data.images}
                         onChange={(v) => form.setData('images', v)}
-                        placeholder="https://…"
-                        addLabel="Add image URL"
                     />
                     <InputError message={form.errors.images} />
 

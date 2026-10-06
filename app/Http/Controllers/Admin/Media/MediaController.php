@@ -9,6 +9,7 @@ use App\Jobs\ProcessMediaJob;
 use App\Models\Media;
 use App\Services\Media\MediaLibrary;
 use App\Support\Auth\AdminGuard;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -68,15 +69,54 @@ class MediaController extends Controller
         ]);
     }
 
-    public function store(MediaUploadRequest $request, MediaLibrary $library): RedirectResponse
+    /**
+     * JSON feed for the "choose from media" dialog used by the product,
+     * brand and content forms: ready images only, newest first.
+     */
+    public function picker(Request $request): JsonResponse
+    {
+        $search = trim($request->string('search')->toString());
+
+        $media = Media::query()
+            ->where('status', MediaStatus::Ready)
+            ->when($search !== '', fn ($query) => $query->where('original_name', 'like', '%'.addcslashes($search, '%_\\').'%'))
+            ->latest('id')
+            ->paginate(18)
+            ->through(fn (Media $item): array => [
+                'id' => $item->id,
+                'name' => $item->original_name,
+                'url' => $item->url(),
+                'thumb_url' => $item->thumbUrl(),
+                'width' => $item->width,
+                'height' => $item->height,
+            ]);
+
+        return response()->json($media);
+    }
+
+    public function store(MediaUploadRequest $request, MediaLibrary $library): RedirectResponse|JsonResponse
     {
         $userId = AdminGuard::user($request)->id;
 
+        $created = [];
+
         foreach ($request->file('files', []) as $file) {
-            $library->queueUpload($file, $userId);
+            $created[] = $library->queueUpload($file, $userId);
         }
 
-        $count = count($request->file('files', []));
+        // The picker dialog uploads over fetch() and polls `status()` for the
+        // conversion result.
+        if ($request->wantsJson()) {
+            return response()->json([
+                'data' => collect($created)->map(fn (Media $media): array => [
+                    'id' => $media->id,
+                    'name' => $media->original_name,
+                    'status' => $media->status->value,
+                ])->all(),
+            ], 201);
+        }
+
+        $count = count($created);
 
         Inertia::flash('toast', [
             'type' => 'success',
@@ -84,6 +124,28 @@ class MediaController extends Controller
         ]);
 
         return back();
+    }
+
+    /**
+     * Conversion progress for a set of just-uploaded images (`?ids=1,2,3`).
+     */
+    public function status(Request $request): JsonResponse
+    {
+        $ids = collect(explode(',', $request->string('ids')->toString()))
+            ->map(fn (string $id): int => (int) $id)
+            ->filter()
+            ->take(50)
+            ->values();
+
+        $items = Media::query()->whereIn('id', $ids)->get()->map(fn (Media $media): array => [
+            'id' => $media->id,
+            'name' => $media->original_name,
+            'status' => $media->status->value,
+            'error' => $media->error,
+            'url' => $media->url(),
+        ])->all();
+
+        return response()->json(['data' => $items]);
     }
 
     public function retry(Media $media): RedirectResponse
@@ -105,7 +167,7 @@ class MediaController extends Controller
         if ($media->usageCount() > 0) {
             Inertia::flash('toast', [
                 'type' => 'error',
-                'message' => __('This image is used by a tyre model. Remove it from the model first.'),
+                'message' => __('This image is in use (a tyre model, brand logo or content page). Remove it there first.'),
             ]);
 
             return back();
