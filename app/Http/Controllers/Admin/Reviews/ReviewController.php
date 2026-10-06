@@ -7,6 +7,7 @@ use App\Http\Requests\Admin\Reviews\ReviewUpdateRequest;
 use App\Jobs\NotifyFrontendRevalidation;
 use App\Models\Review;
 use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Artisan;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -27,15 +28,34 @@ class ReviewController extends Controller
      * endpoint, which excludes them entirely (see
      * {@see Review::scopeVisible()}'s docblock).
      */
-    public function index(): Response
+    public function index(Request $request): Response
     {
+        $search = trim($request->string('search')->toString());
+        $rating = $request->integer('rating');
+        $visibility = $request->string('visibility')->toString();
+
         $reviews = Review::query()
+            ->when($search !== '', function ($query) use ($search): void {
+                $like = '%'.addcslashes($search, '%_\\').'%';
+
+                $query->where(fn ($inner) => $inner
+                    ->where('author_name', 'like', $like)
+                    ->orWhere('body', 'like', $like));
+            })
+            ->when($rating >= 1 && $rating <= 5, fn ($query) => $query->where('rating', $rating))
+            ->when($visibility === 'hidden', fn ($query) => $query->where('is_hidden', true))
+            ->when($visibility === 'visible', fn ($query) => $query->where('is_hidden', false))
             ->orderByDesc('published_at')
             ->paginate(20)
             ->withQueryString();
 
         return Inertia::render('reviews/index', [
             'reviews' => $reviews,
+            'filters' => [
+                'search' => $search !== '' ? $search : null,
+                'rating' => $rating >= 1 && $rating <= 5 ? $rating : null,
+                'visibility' => in_array($visibility, ['hidden', 'visible'], true) ? $visibility : null,
+            ],
         ]);
     }
 

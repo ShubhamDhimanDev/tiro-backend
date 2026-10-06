@@ -1,11 +1,9 @@
 import { Link } from '@inertiajs/react';
 import {
     BarChart3,
-    BookOpen,
     CalendarClock,
     Car,
     FileText,
-    FolderGit2,
     LayoutGrid,
     MapPin,
     Package,
@@ -31,7 +29,6 @@ import StockLocationController from '@/actions/App/Http/Controllers/Admin/Invent
 import UserController from '@/actions/App/Http/Controllers/Admin/UserController';
 import VehicleController from '@/actions/App/Http/Controllers/Admin/Vehicles/VehicleController';
 import AppLogo from '@/components/app-logo';
-import { NavFooter } from '@/components/nav-footer';
 import { NavMain } from '@/components/nav-main';
 import { NavModules } from '@/components/nav-modules';
 import { NavUser } from '@/components/nav-user';
@@ -74,19 +71,7 @@ const mainNavItems: NavItem[] = [
  * pinned by project-manager in an earlier phase) and "Bookings" (see that
  * entry's own comment — `bookings.view` is NOT a real seeded permission).
  */
-const moduleNavItems: PermissionNavItem[] = [
-    {
-        title: 'Products',
-        href: BrandController.index().url,
-        icon: Package,
-        permissions: ['products.view', 'products.manage'],
-    },
-    {
-        title: 'Inventory',
-        href: StockLocationController.index().url,
-        icon: Warehouse,
-        permissions: ['inventory.view', 'inventory.manage'],
-    },
+const operationsNavItems: PermissionNavItem[] = [
     {
         title: 'Orders',
         href: OrderController.index().url,
@@ -114,10 +99,37 @@ const moduleNavItems: PermissionNavItem[] = [
         permissions: ['customers.view', 'customers.manage'],
     },
     {
+        title: 'Inventory',
+        href: StockLocationController.index().url,
+        icon: Warehouse,
+        permissions: ['inventory.view', 'inventory.manage'],
+    },
+    {
         title: 'Locations',
         href: StateController.index().url,
         icon: MapPin,
         permissions: ['locations.view', 'locations.manage'],
+    },
+    {
+        title: 'Reporting',
+        href: ReportingController.show('sales').url,
+        icon: BarChart3,
+        permissions: ['reporting.view'],
+    },
+];
+
+const catalogueNavItems: PermissionNavItem[] = [
+    {
+        title: 'Products',
+        href: BrandController.index().url,
+        icon: Package,
+        permissions: ['products.view', 'products.manage'],
+    },
+    {
+        title: 'Vehicles',
+        href: VehicleController.index().url,
+        icon: Car,
+        permissions: ['vehicles.view', 'vehicles.manage'],
     },
     {
         title: 'Promotions',
@@ -138,6 +150,9 @@ const moduleNavItems: PermissionNavItem[] = [
         // the old, narrower permission until this fix.
         permissions: ['promotions.view', 'promotions.manage'],
     },
+];
+
+const contentNavItems: PermissionNavItem[] = [
     {
         title: 'Content',
         href: ContentPageController.index().url,
@@ -153,23 +168,14 @@ const moduleNavItems: PermissionNavItem[] = [
         // Reviews group and `ReviewUpdateRequest`).
         permissions: ['content.view', 'content.manage'],
     },
-    {
-        title: 'Reporting',
-        href: ReportingController.show('sales').url,
-        icon: BarChart3,
-        permissions: ['reporting.view'],
-    },
+];
+
+const administrationNavItems: PermissionNavItem[] = [
     {
         title: 'Roles & Users',
         href: UserController.index().url,
         icon: ShieldCheck,
         permissions: ['roles-users.manage'],
-    },
-    {
-        title: 'Vehicles',
-        href: VehicleController.index().url,
-        icon: Car,
-        permissions: ['vehicles.view', 'vehicles.manage'],
     },
     {
         title: 'Audit Log',
@@ -180,19 +186,6 @@ const moduleNavItems: PermissionNavItem[] = [
         // super_admin/operations/customer_support only, deliberately not
         // ecommerce/fleet/technician.
         permissions: ['audit-log.view'],
-    },
-];
-
-const footerNavItems: NavItem[] = [
-    {
-        title: 'Repository',
-        href: 'https://github.com/laravel/react-starter-kit',
-        icon: FolderGit2,
-    },
-    {
-        title: 'Documentation',
-        href: 'https://laravel.com/docs/starter-kits#react',
-        icon: BookOpen,
     },
 ];
 
@@ -213,11 +206,19 @@ export function AppSidebar() {
 
             <SidebarContent>
                 <NavMain items={mainNavItems} />
-                <NavModules items={moduleNavItems} />
+                <NavModules title="Operations" items={operationsNavItems} />
+                <NavModules title="Catalogue" items={catalogueNavItems} />
+                <NavModules
+                    title="Content & Reputation"
+                    items={contentNavItems}
+                />
+                <NavModules
+                    title="Administration"
+                    items={administrationNavItems}
+                />
             </SidebarContent>
 
             <SidebarFooter>
-                <NavFooter items={footerNavItems} className="mt-auto" />
                 <NavUser />
             </SidebarFooter>
         </Sidebar>

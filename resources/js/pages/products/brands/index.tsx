@@ -1,3 +1,4 @@
+import { ListToolbar, useListFilter } from '@/components/list-toolbar';
 import { useForm } from '@inertiajs/react';
 import { Head, Link } from '@inertiajs/react';
 import { useState } from 'react';
@@ -189,6 +190,14 @@ function BrandFormDialog({ brand }: { brand?: Brand }) {
 }
 
 export default function BrandsIndex({ brands }: { brands: Brand[] }) {
+    const list = useListFilter(brands, {
+        placeholder: 'Search brands by name, slug or country…',
+        searchText: (i) => [i.name, i.slug, i.country_of_origin],
+        filters: {
+            Status: { label: 'Status', get: (i) => i.status },
+        },
+    });
+
     return (
         <>
             <Head title="Brands" />
@@ -207,6 +216,7 @@ export default function BrandsIndex({ brands }: { brands: Brand[] }) {
                     </CardDescription>
                 </CardHeader>
                 <CardContent>
+                    <ListToolbar {...list.toolbarProps} />
                     {brands.length === 0 ? (
                         <p className="text-muted-foreground text-sm">
                             No brands yet.
@@ -225,7 +235,7 @@ export default function BrandsIndex({ brands }: { brands: Brand[] }) {
                                 </tr>
                             </thead>
                             <tbody>
-                                {brands.map((brand) => (
+                                {list.filtered.map((brand) => (
                                     <tr
                                         key={brand.id}
                                         className="border-b last:border-0"

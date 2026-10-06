@@ -1,3 +1,4 @@
+import { ListToolbar, useListFilter } from '@/components/list-toolbar';
 import { useForm } from '@inertiajs/react';
 import { Head } from '@inertiajs/react';
 import { useState } from 'react';
@@ -340,6 +341,24 @@ export default function TyreModelVariantsIndex({
     tyreModel: TyreModel;
     tyreVariants: TyreVariant[];
 }) {
+    const list = useListFilter(tyreVariants, {
+        placeholder: 'Search by SKU, size, load index or speed rating…',
+        searchText: (i) => [
+            i.sku,
+            i.slug,
+            `${i.width}/${i.profile}R${i.rim_diameter}`,
+            `${i.width}/${i.profile}`,
+            i.load_index,
+            i.speed_rating,
+            i.ean,
+        ],
+        filters: {
+            Status: { label: 'Status', get: (i) => i.status },
+            Rim: { label: 'Rim', get: (i) => i.rim_diameter },
+            Sidewall: { label: 'Sidewall', get: (i) => i.sidewall },
+        },
+    });
+
     return (
         <>
             <Head title={`${tyreModel.name} — variants`} />
@@ -365,6 +384,7 @@ export default function TyreModelVariantsIndex({
                         </CardDescription>
                     </CardHeader>
                     <CardContent>
+                        <ListToolbar {...list.toolbarProps} />
                         {tyreVariants.length === 0 ? (
                             <p className="text-muted-foreground text-sm">
                                 No variants yet for this model.
@@ -392,7 +412,7 @@ export default function TyreModelVariantsIndex({
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    {tyreVariants.map((variant) => (
+                                    {list.filtered.map((variant) => (
                                         <tr
                                             key={variant.id}
                                             className="border-b last:border-0"

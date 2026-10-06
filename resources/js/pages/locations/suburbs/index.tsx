@@ -1,3 +1,4 @@
+import { ListToolbar, useListFilter } from '@/components/list-toolbar';
 import { router, useForm } from '@inertiajs/react';
 import { Head } from '@inertiajs/react';
 import { useState } from 'react';
@@ -282,6 +283,14 @@ export default function SuburbsIndex({
     states: State[];
     suburbListZones: SuburbZoneSummary[];
 }) {
+    const list = useListFilter(suburbs, {
+        placeholder: 'Search suburbs by name or postcode…',
+        searchText: (i) => [i.name, i.postcode, i.state?.code],
+        filters: {
+            State: { label: 'State', get: (i) => i.state?.code },
+        },
+    });
+
     return (
         <>
             <Head title="Suburbs" />
@@ -304,6 +313,7 @@ export default function SuburbsIndex({
                     </CardDescription>
                 </CardHeader>
                 <CardContent>
+                    <ListToolbar {...list.toolbarProps} />
                     {suburbs.length === 0 ? (
                         <p className="text-muted-foreground text-sm">
                             No suburbs yet.
@@ -325,7 +335,7 @@ export default function SuburbsIndex({
                                 </tr>
                             </thead>
                             <tbody>
-                                {suburbs.map((suburb) => (
+                                {list.filtered.map((suburb) => (
                                     <tr
                                         key={suburb.id}
                                         className="border-b last:border-0"

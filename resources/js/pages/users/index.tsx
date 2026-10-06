@@ -1,3 +1,4 @@
+import { ListToolbar, useListFilter } from '@/components/list-toolbar';
 import { Form, Head } from '@inertiajs/react';
 import UserController from '@/actions/App/Http/Controllers/Admin/UserController';
 import { Can } from '@/components/can';
@@ -48,6 +49,14 @@ type StaffMember = {
 };
 
 export default function UsersIndex({ staff = [] }: { staff?: StaffMember[] }) {
+    const list = useListFilter(staff, {
+        placeholder: 'Search staff by name, email or role…',
+        searchText: (i) => [i.name, i.email, ...i.roles],
+        filters: {
+            Role: { label: 'Role', get: (i) => i.roles[0] },
+        },
+    });
+
     return (
         <>
             <Head title="Roles & Users" />
@@ -158,6 +167,7 @@ export default function UsersIndex({ staff = [] }: { staff?: StaffMember[] }) {
                             </CardDescription>
                         </CardHeader>
                         <CardContent>
+                            <ListToolbar {...list.toolbarProps} />
                             {staff.length === 0 ? (
                                 <p className="text-muted-foreground text-sm">
                                     No staff accounts to show yet.
@@ -178,7 +188,7 @@ export default function UsersIndex({ staff = [] }: { staff?: StaffMember[] }) {
                                         </tr>
                                     </thead>
                                     <tbody>
-                                        {staff.map((member) => (
+                                        {list.filtered.map((member) => (
                                             <tr
                                                 key={member.id}
                                                 className="border-b last:border-0"

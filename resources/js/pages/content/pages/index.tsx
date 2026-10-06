@@ -1,3 +1,4 @@
+import { ListToolbar, useListFilter } from '@/components/list-toolbar';
 import { Head, router, useForm } from '@inertiajs/react';
 import { useState } from 'react';
 import ContentPageController from '@/actions/App/Http/Controllers/Admin/Content/ContentPageController';
@@ -621,6 +622,15 @@ export default function ContentPagesIndex({
         type: p.type,
     }));
 
+    const list = useListFilter(contentPages, {
+        placeholder: 'Search pages by title, slug or category…',
+        searchText: (i) => [i.title, i.slug, i.category, i.excerpt],
+        filters: {
+            Type: { label: 'Type', get: (i) => i.type },
+            Status: { label: 'Status', get: (i) => i.status },
+        },
+    });
+
     return (
         <>
             <Head title="Content pages" />
@@ -645,6 +655,7 @@ export default function ContentPagesIndex({
                     </CardDescription>
                 </CardHeader>
                 <CardContent>
+                    <ListToolbar {...list.toolbarProps} />
                     {contentPages.length === 0 ? (
                         <p className="text-muted-foreground text-sm">
                             No content pages yet.
@@ -669,7 +680,7 @@ export default function ContentPagesIndex({
                                 </tr>
                             </thead>
                             <tbody>
-                                {contentPages.map((page) => (
+                                {list.filtered.map((page) => (
                                     <tr
                                         key={page.id}
                                         className="border-b last:border-0"

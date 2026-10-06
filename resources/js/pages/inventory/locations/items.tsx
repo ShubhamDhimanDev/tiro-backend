@@ -1,3 +1,4 @@
+import { ListToolbar, useListFilter } from '@/components/list-toolbar';
 import { router, useForm } from '@inertiajs/react';
 import { Head, Link } from '@inertiajs/react';
 import { useMemo, useState } from 'react';
@@ -341,6 +342,27 @@ export default function InventoryLocationItemsIndex({
         [inventoryItems],
     );
 
+    const list = useListFilter(inventoryItems, {
+        placeholder: 'Search stock by SKU, model or size…',
+        searchText: (i) => [
+            i.tyre_variant?.sku,
+            i.tyre_variant?.tyre_model?.name,
+            i.tyre_variant?.tyre_model?.brand?.name,
+            i.tyre_variant
+                ? `${i.tyre_variant.width}/${i.tyre_variant.profile}R${i.tyre_variant.rim_diameter}`
+                : null,
+        ],
+        filters: {
+            StockLevel: {
+                label: 'Stock level',
+                get: (i) =>
+                    i.qty_on_hand - i.qty_reserved <= i.reorder_point
+                        ? 'low'
+                        : 'ok',
+            },
+        },
+    });
+
     return (
         <>
             <Head title={`${stockLocation.name} — stock`} />
@@ -373,6 +395,7 @@ export default function InventoryLocationItemsIndex({
                         </CardDescription>
                     </CardHeader>
                     <CardContent>
+                        <ListToolbar {...list.toolbarProps} />
                         {inventoryItems.length === 0 ? (
                             <p className="text-muted-foreground text-sm">
                                 No stock rows yet at this location.
@@ -400,7 +423,7 @@ export default function InventoryLocationItemsIndex({
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    {inventoryItems.map((item) => (
+                                    {list.filtered.map((item) => (
                                         <tr
                                             key={item.id}
                                             className="border-b last:border-0"

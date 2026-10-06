@@ -1,3 +1,4 @@
+import { ListToolbar, useListFilter } from '@/components/list-toolbar';
 import { useForm } from '@inertiajs/react';
 import { Head, Link } from '@inertiajs/react';
 import { useState } from 'react';
@@ -387,6 +388,16 @@ export default function BrandModelsIndex({
     brand: Brand;
     tyreModels: TyreModel[];
 }) {
+    const list = useListFilter(tyreModels, {
+        placeholder: 'Search models by name or slug…',
+        searchText: (i) => [i.name, i.slug],
+        filters: {
+            Status: { label: 'Status', get: (i) => i.status },
+            Category: { label: 'Category', get: (i) => i.category },
+            Type: { label: 'Type', get: (i) => i.tyre_type },
+        },
+    });
+
     return (
         <>
             <Head title={`${brand.name} — models`} />
@@ -411,6 +422,7 @@ export default function BrandModelsIndex({
                         </CardDescription>
                     </CardHeader>
                     <CardContent>
+                        <ListToolbar {...list.toolbarProps} />
                         {tyreModels.length === 0 ? (
                             <p className="text-muted-foreground text-sm">
                                 No models yet for this brand.
@@ -438,7 +450,7 @@ export default function BrandModelsIndex({
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    {tyreModels.map((tyreModel) => (
+                                    {list.filtered.map((tyreModel) => (
                                         <tr
                                             key={tyreModel.id}
                                             className="border-b last:border-0"

@@ -1,11 +1,20 @@
 import { Head, router, useForm } from '@inertiajs/react';
-import { Star } from 'lucide-react';
+import { useState } from 'react';
+import { Search, Star, X } from 'lucide-react';
 import ReviewController from '@/actions/App/Http/Controllers/Admin/Reviews/ReviewController';
 import { Can } from '@/components/can';
 import Heading from '@/components/heading';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from '@/components/ui/select';
 import { cn } from '@/lib/utils';
 import type { Paginated } from '@/types/orders';
 import type { Review } from '@/types/reviews';
@@ -70,15 +79,127 @@ function ResyncButton() {
     );
 }
 
+type ReviewFilters = {
+    search: string | null;
+    rating: number | null;
+    visibility: 'hidden' | 'visible' | null;
+};
+
+const ALL = '__all__';
+
+function ReviewFilterBar({ filters }: { filters: ReviewFilters }) {
+    const [search, setSearch] = useState(filters.search ?? '');
+
+    const apply = (next: Partial<ReviewFilters>) => {
+        const merged = { ...filters, search: search.trim() || null, ...next };
+
+        router.get(
+            ReviewController.index().url,
+            Object.fromEntries(
+                Object.entries(merged).filter(
+                    ([, v]) => v !== null && v !== '',
+                ),
+            ),
+            { preserveState: true, preserveScroll: true, replace: true },
+        );
+    };
+
+    const isFiltering =
+        filters.search !== null ||
+        filters.rating !== null ||
+        filters.visibility !== null;
+
+    return (
+        <form
+            className="mb-4 flex flex-wrap items-center gap-2"
+            onSubmit={(e) => {
+                e.preventDefault();
+                apply({});
+            }}
+        >
+            <div className="relative w-full max-w-xs">
+                <Search className="text-muted-foreground pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2" />
+                <Input
+                    type="search"
+                    value={search}
+                    onChange={(e) => setSearch(e.target.value)}
+                    placeholder="Search by author or review text…"
+                    aria-label="Search reviews"
+                    className="pl-8"
+                />
+            </div>
+            <Select
+                value={filters.rating ? String(filters.rating) : ALL}
+                onValueChange={(v) =>
+                    apply({ rating: v === ALL ? null : Number(v) })
+                }
+            >
+                <SelectTrigger aria-label="Rating" className="w-40">
+                    <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                    <SelectItem value={ALL}>All ratings</SelectItem>
+                    {[5, 4, 3, 2, 1].map((n) => (
+                        <SelectItem key={n} value={String(n)}>
+                            {n} star{n === 1 ? '' : 's'}
+                        </SelectItem>
+                    ))}
+                </SelectContent>
+            </Select>
+            <Select
+                value={filters.visibility ?? ALL}
+                onValueChange={(v) =>
+                    apply({
+                        visibility:
+                            v === ALL ? null : (v as 'hidden' | 'visible'),
+                    })
+                }
+            >
+                <SelectTrigger aria-label="Visibility" className="w-40">
+                    <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                    <SelectItem value={ALL}>All reviews</SelectItem>
+                    <SelectItem value="visible">Visible</SelectItem>
+                    <SelectItem value="hidden">Hidden</SelectItem>
+                </SelectContent>
+            </Select>
+            <Button type="submit" variant="secondary" size="sm">
+                Search
+            </Button>
+            {isFiltering && (
+                <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => {
+                        setSearch('');
+                        router.get(
+                            ReviewController.index().url,
+                            {},
+                            { preserveState: true, replace: true },
+                        );
+                    }}
+                >
+                    <X className="size-4" />
+                    Clear
+                </Button>
+            )}
+        </form>
+    );
+}
+
 export default function ReviewsIndex({
     reviews,
+    filters,
 }: {
     reviews: Paginated<Review>;
+    filters: ReviewFilters;
 }) {
     const goToPage = (page: number) => {
         router.get(
             ReviewController.index().url,
-            { page },
+            { ...filters, page },
             { preserveState: true, preserveScroll: true },
         );
     };
@@ -101,9 +222,14 @@ export default function ReviewsIndex({
 
                 <Card>
                     <CardContent className="pt-6">
+                        <ReviewFilterBar filters={filters} />
                         {reviews.data.length === 0 ? (
                             <p className="text-muted-foreground text-sm">
-                                No reviews synced yet.
+                                {filters.search ||
+                                filters.rating ||
+                                filters.visibility
+                                    ? 'No reviews match your search or filters.'
+                                    : 'No reviews synced yet.'}
                             </p>
                         ) : (
                             <>

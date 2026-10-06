@@ -1,3 +1,4 @@
+import { ListToolbar, useListFilter } from '@/components/list-toolbar';
 import { useForm } from '@inertiajs/react';
 import { Head } from '@inertiajs/react';
 import { useState } from 'react';
@@ -268,6 +269,15 @@ export default function TechniciansIndex({
 }: {
     technicians: Technician[];
 }) {
+    const list = useListFilter(technicians, {
+        placeholder: 'Search technicians by name, email or certification…',
+        searchText: (i) => [i.name, i.user?.email, ...(i.certifications ?? [])],
+        filters: {
+            Status: { label: 'Status', get: (i) => i.status },
+            Employment: { label: 'Employment', get: (i) => i.employment_type },
+        },
+    });
+
     return (
         <>
             <Head title="Technicians" />
@@ -291,6 +301,7 @@ export default function TechniciansIndex({
                         <CardTitle>Technicians</CardTitle>
                     </CardHeader>
                     <CardContent>
+                        <ListToolbar {...list.toolbarProps} />
                         {technicians.length === 0 ? (
                             <p className="text-muted-foreground text-sm">
                                 No technicians yet.
@@ -318,7 +329,7 @@ export default function TechniciansIndex({
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    {technicians.map((technician) => (
+                                    {list.filtered.map((technician) => (
                                         <tr
                                             key={technician.id}
                                             className="border-b last:border-0"

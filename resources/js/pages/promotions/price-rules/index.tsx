@@ -1,3 +1,4 @@
+import { ListToolbar, useListFilter } from '@/components/list-toolbar';
 import { Head, router, useForm } from '@inertiajs/react';
 import { useState } from 'react';
 import PriceRuleController from '@/actions/App/Http/Controllers/Admin/Promotions/PriceRuleController';
@@ -289,6 +290,15 @@ export default function PriceRulesIndex({
     priceRules: PriceRule[];
     serviceZones: { id: number; name: string }[];
 }) {
+    const list = useListFilter(priceRules, {
+        placeholder: 'Search price rules by zone…',
+        searchText: (i) => [i.service_zone?.name, i.fee_type],
+        filters: {
+            Status: { label: 'Status', get: (i) => i.status },
+            FeeType: { label: 'Fee type', get: (i) => i.fee_type },
+        },
+    });
+
     return (
         <>
             <Head title="Price rules" />
@@ -309,6 +319,7 @@ export default function PriceRulesIndex({
                     </CardDescription>
                 </CardHeader>
                 <CardContent>
+                    <ListToolbar {...list.toolbarProps} />
                     {priceRules.length === 0 ? (
                         <p className="text-muted-foreground text-sm">
                             No price rules yet.
@@ -327,7 +338,7 @@ export default function PriceRulesIndex({
                                 </tr>
                             </thead>
                             <tbody>
-                                {priceRules.map((rule) => (
+                                {list.filtered.map((rule) => (
                                     <tr
                                         key={rule.id}
                                         className="border-b last:border-0"

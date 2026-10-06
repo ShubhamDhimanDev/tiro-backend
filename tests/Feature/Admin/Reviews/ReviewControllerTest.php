@@ -146,3 +146,22 @@ test('a user without content.manage cannot trigger a resync', function () {
 
     $this->actingAs($outsider)->post(route('admin.reviews.resync'))->assertForbidden();
 });
+
+test('the reviews index can be searched and filtered by rating and visibility', function () {
+    $admin = reviewContentManager();
+    Review::factory()->create(['author_name' => 'Alice Wonder', 'body' => 'Quick fit', 'rating' => 5]);
+    Review::factory()->create(['author_name' => 'Bob Builder', 'body' => 'Late arrival', 'rating' => 2]);
+    Review::factory()->hidden()->create(['author_name' => 'Carol Hidden', 'rating' => 5]);
+
+    $this->actingAs($admin)->get(route('admin.reviews.index', ['search' => 'alice']))
+        ->assertInertia(fn (Assert $page) => $page->has('reviews.data', 1)->where('filters.search', 'alice'));
+
+    $this->actingAs($admin)->get(route('admin.reviews.index', ['rating' => 2]))
+        ->assertInertia(fn (Assert $page) => $page->has('reviews.data', 1)->where('filters.rating', 2));
+
+    $this->actingAs($admin)->get(route('admin.reviews.index', ['visibility' => 'hidden']))
+        ->assertInertia(fn (Assert $page) => $page->has('reviews.data', 1));
+
+    $this->actingAs($admin)->get(route('admin.reviews.index', ['rating' => 5, 'visibility' => 'visible']))
+        ->assertInertia(fn (Assert $page) => $page->has('reviews.data', 1));
+});
