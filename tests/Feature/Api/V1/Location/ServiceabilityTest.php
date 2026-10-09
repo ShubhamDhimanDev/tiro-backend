@@ -18,28 +18,28 @@ beforeEach(function () {
 });
 
 it('resolves an exact suburb_list match by postcode', function () {
-    $response = $this->postJson('/api/v1/serviceability', ['postcode' => '2042']);
+    $response = $this->postJson('/api/v1/serviceability', ['postcode' => '6168']);
 
-    $zone = ServiceZone::query()->where('name', 'Sydney Inner West')->firstOrFail();
+    $zone = ServiceZone::query()->where('name', 'Rockingham & Mandurah')->firstOrFail();
 
     $response->assertOk()->assertExactJson([
         'serviceable' => true,
         'service_zone_id' => $zone->id,
-        'label' => 'Sydney Inner West',
+        'label' => 'Rockingham & Mandurah',
         'suggested_areas' => [],
     ]);
 });
 
 it('resolves an exact suburb_list match by suburb name, case-insensitively', function () {
-    $response = $this->postJson('/api/v1/serviceability', ['suburb' => 'mArrickville']);
+    $response = $this->postJson('/api/v1/serviceability', ['suburb' => 'mAndurah']);
 
     $response->assertOk()
         ->assertJsonPath('serviceable', true)
-        ->assertJsonPath('label', 'Sydney Inner West');
+        ->assertJsonPath('label', 'Rockingham & Mandurah');
 });
 
 it('reports not serviceable for a suburb outside every zone', function () {
-    $response = $this->postJson('/api/v1/serviceability', ['suburb' => 'Bondi']);
+    $response = $this->postJson('/api/v1/serviceability', ['suburb' => 'Bunbury']);
 
     $response->assertOk()->assertExactJson([
         'serviceable' => false,
@@ -89,10 +89,10 @@ it('falls back to the remaining radius zone once the higher-priority tied zone i
     $response->assertOk()->assertJsonPath('label', 'Melbourne Metro');
 });
 
-it('resolves a suburb to its own single-candidate radius zone', function () {
+it('reports not serviceable for Geelong, which is outside the Melbourne-only coverage', function () {
     $response = $this->postJson('/api/v1/serviceability', ['suburb' => 'Geelong']);
 
-    $response->assertOk()->assertJsonPath('label', 'Geelong & Surrounds');
+    $response->assertOk()->assertJsonPath('serviceable', false);
 });
 
 it('reports not serviceable for a real suburb too far from every zone', function () {

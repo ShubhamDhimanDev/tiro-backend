@@ -127,7 +127,7 @@ final class DemoContent
             ['question' => 'What is the difference between premium, mid-range and budget tyres?', 'category' => 'tyres', 'answer' => 'Premium tyres lead on wet braking, noise and tread life. Mid-range tyres are strong all-rounders. Budget tyres suit light use and tight budgets.'],
             ['question' => 'Can I change or cancel my booking?', 'category' => 'booking', 'answer' => 'Yes. Use the link in your confirmation message to reschedule or cancel. Cancelling close to the appointment time may incur a fee, which is shown before you confirm.'],
             ['question' => 'Do I need to be home during the fitting?', 'category' => 'booking', 'answer' => 'No, as long as we can access the vehicle. You will get a message when the job is complete.'],
-            ['question' => 'What areas do you service?', 'category' => 'service', 'answer' => 'We service major metropolitan areas and are growing. Enter your suburb or postcode on the locations page to check, or register your interest if we are not there yet.'],
+            ['question' => 'What areas do you service?', 'category' => 'service', 'answer' => 'We currently service Melbourne and the Perth region in Western Australia, including Rockingham and Mandurah. Enter your suburb or postcode on the locations page to check, or register your interest if we are not there yet.'],
             ['question' => 'What payment methods do you accept?', 'category' => 'pricing', 'answer' => 'Major credit and debit cards, plus supported digital wallets. Payment is taken securely when you place your order.'],
         ];
     }

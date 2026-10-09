@@ -15,11 +15,11 @@ use Database\Seeders\LocationSeeder;
  * for: at least one radius-type and one suburb_list-type zone, each with
  * suburbs actually inside their matching radius/list.
  */
-it('seeds all 8 AU states/territories with exactly two marked active', function () {
+it('seeds all 8 AU states/territories with only VIC and WA marked active', function () {
     $this->seed(LocationSeeder::class);
 
     expect(State::query()->count())->toBe(8)
-        ->and(State::query()->where('is_active', true)->count())->toBe(2)
+        ->and(State::query()->where('is_active', true)->pluck('code')->sort()->values()->all())->toBe(['VIC', 'WA'])
         ->and(State::query()->pluck('code')->sort()->values()->all())
         ->toBe(['ACT', 'NSW', 'NT', 'QLD', 'SA', 'TAS', 'VIC', 'WA']);
 });

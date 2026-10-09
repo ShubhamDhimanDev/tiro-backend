@@ -11,26 +11,30 @@ use Database\Seeders\LocationSeeder;
 /**
  * Phase 6a placeholder seeders: launch cities and public offers.
  */
-it('tags the existing zones and adds the six placeholder launch cities to the public tree', function () {
+it('tags the existing zones and adds the Perth placeholder so the public tree is Melbourne and Western Australia only', function () {
     $this->seed(LocationSeeder::class);
     $this->seed(LaunchCitiesSeeder::class);
 
-    $cities = collect($this->getJson('/api/v1/locations')->assertOk()->json('data'))
+    $tree = collect($this->getJson('/api/v1/locations')->assertOk()->json('data'));
+    $cities = $tree
         ->flatMap(fn ($state) => collect($state['cities'])->map(fn ($city) => $city['name']))
         ->sort()->values()->all();
 
-    expect($cities)->toBe(['Adelaide', 'Brisbane', 'Geelong', 'Gold Coast', 'Melbourne', 'Perth', 'Sydney']);
+    expect($tree->pluck('code')->sort()->values()->all())->toBe(['VIC', 'WA'])
+        ->and($cities)->toBe(['Melbourne', 'Perth']);
     expect(ServiceZone::query()->where('city_slug', 'melbourne')->count())->toBe(2)
-        ->and(ServiceZone::query()->where('name', 'Brisbane Metro')->value('type'))->toBe(ServiceZoneType::Radius);
+        ->and(ServiceZone::query()->where('city_slug', 'perth')->count())->toBe(2)
+        ->and(ServiceZone::query()->where('name', 'Perth Metro')->value('type'))->toBe(ServiceZoneType::Radius);
 });
 
 it('lists seeded suburbs under their city and keeps them serviceable', function () {
     $this->seed(LocationSeeder::class);
     $this->seed(LaunchCitiesSeeder::class);
 
-    $detail = $this->getJson('/api/v1/locations/qld/gold-coast')->assertOk()->json('data');
+    $detail = $this->getJson('/api/v1/locations/wa/perth')->assertOk()->json('data');
 
-    expect(collect($detail['suburbs'])->pluck('name')->all())->toBe(['Burleigh Heads', 'Southport', 'Surfers Paradise']);
+    expect(collect($detail['suburbs'])->pluck('name')->all())
+        ->toBe(['Baldivis', 'Fremantle', 'Kwinana Town Centre', 'Mandurah', 'Perth', 'Rockingham', 'Subiaco']);
     foreach ($detail['suburbs'] as $suburb) {
         expect($this->postJson('/api/v1/serviceability', ['postcode' => $suburb['postcode']])->json('service_zone_id'))->toBe($suburb['service_zone_id']);
     }
