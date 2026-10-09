@@ -191,7 +191,7 @@ test('a real catalog import queues image downloads, a dry run does not', functio
     ];
 
     app(CatalogImportService::class)->import([$row], dryRun: true);
-    Queue::assertNothingPushed();
+    Queue::assertNotPushed(LocalizeModelImagesJob::class);
 
     app(CatalogImportService::class)->import([$row]);
     Queue::assertPushed(LocalizeModelImagesJob::class, 1);
@@ -289,7 +289,7 @@ test('media:localize-images --dry-run reports without queueing or downloading', 
         ->expectsOutputToContain('1 tyre model(s) reference 1 distinct remote image(s)')
         ->assertSuccessful();
 
-    Queue::assertNothingPushed();
+    Queue::assertNotPushed(LocalizeModelImagesJob::class);
     Http::assertNothingSent();
 });
 

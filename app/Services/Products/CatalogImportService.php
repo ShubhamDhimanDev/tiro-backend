@@ -308,6 +308,14 @@ class CatalogImportService
 
                     $isNewVariant = ! $variant->exists;
 
+                    // Set the slug here rather than leaning on TyreVariant's
+                    // `creating` hook: seeders run under WithoutModelEvents,
+                    // which suppresses that hook and would leave `slug` unset.
+                    if ($isNewVariant && blank($variant->slug)) {
+                        $variant->setRelation('tyreModel', $tyreModel);
+                        $variant->slug = TyreVariant::generateUniqueSlug($variant);
+                    }
+
                     $variant->fill([
                         'tyre_model_id' => $tyreModel->id,
                         'sku' => $data['sku'],

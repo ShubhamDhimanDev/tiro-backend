@@ -25,10 +25,11 @@ class DatabaseSeeder extends Seeder
             'email' => 'test@example.com',
         ]);
 
-        // CatalogueSeeder stocks inventory at the StockLocations LocationSeeder
-        // creates, so LocationSeeder must run first.
         $this->call(LocationSeeder::class);
-        $this->call(CatalogueSeeder::class);
+
+        // The real catalogue, imported from the client's WooCommerce export.
+        // No demo brands or products: CatalogueSeeder is a test fixture only.
+        $this->call(CatalogImportSeeder::class);
         $this->call(VehicleSeeder::class);
         $this->call(DurationRuleSeeder::class);
         $this->call(CancellationPolicySeeder::class);
