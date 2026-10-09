@@ -6,6 +6,8 @@ use App\Models\Brand;
 use App\Models\ContentPage;
 use App\Models\Faq;
 use App\Models\Promotion;
+use App\Models\ServiceZone;
+use App\Models\State;
 use App\Models\TyreModel;
 use App\Models\TyreVariant;
 use Illuminate\Support\Facades\Bus;
@@ -195,4 +197,21 @@ it('dispatches every linked ContentPage tag, on both update and delete, when a P
     Bus::fake();
     $promotion->delete();
     Bus::assertDispatched(NotifyFrontendRevalidation::class, fn ($job) => $job->tags === $expectedTags);
+});
+
+it('dispatches the locations tag when a state is toggled or a zone changes, but not for a new (inactive) state', function () {
+    Bus::fake();
+    $state = State::factory()->create(['is_active' => false]);
+    Bus::assertNotDispatched(NotifyFrontendRevalidation::class);
+
+    $state->update(['is_active' => true]);
+    Bus::assertDispatched(NotifyFrontendRevalidation::class, fn ($job) => $job->tags === ['locations']);
+
+    Bus::fake();
+    $zone = ServiceZone::factory()->create(['state_id' => $state->id]);
+    Bus::assertDispatched(NotifyFrontendRevalidation::class, fn ($job) => $job->tags === ['locations']);
+
+    Bus::fake();
+    $zone->update(['status' => 'inactive']);
+    Bus::assertDispatched(NotifyFrontendRevalidation::class, fn ($job) => $job->tags === ['locations']);
 });

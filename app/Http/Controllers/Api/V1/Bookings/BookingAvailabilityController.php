@@ -3,7 +3,6 @@
 namespace App\Http\Controllers\Api\V1\Bookings;
 
 use App\Enums\DurationRuleAppliesTo;
-use App\Enums\Status;
 use App\Enums\VehicleFitmentPosition;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Api\Bookings\BookingAvailabilityRequest;
@@ -101,7 +100,7 @@ class BookingAvailabilityController extends Controller
     private function resolveZone(BookingAvailabilityRequest $request): ?ServiceZone
     {
         if ($request->filled('zone')) {
-            return ServiceZone::query()->where('status', Status::Active)->find($request->integer('zone'));
+            return ServiceZone::query()->serviceable()->find($request->integer('zone'));
         }
 
         $suburbs = $request->filled('postcode')

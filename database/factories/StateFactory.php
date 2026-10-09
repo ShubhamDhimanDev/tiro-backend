@@ -21,7 +21,7 @@ class StateFactory extends Factory
         return [
             'code' => strtoupper(fake()->unique()->lexify('???')),
             'name' => fake()->unique()->city(),
-            'is_active' => false,
+            'is_active' => true,
             'status' => Status::Active,
         ];
     }

@@ -2,10 +2,12 @@
 
 namespace App\Models;
 
+use App\Contracts\RevalidatesFrontend;
 use App\Enums\ServiceZoneType;
 use App\Enums\Status;
 use Database\Factories\ServiceZoneFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -39,10 +41,26 @@ use Illuminate\Support\Carbon;
  * @property Carbon|null $updated_at
  */
 #[Fillable(['name', 'city_name', 'city_slug', 'state_id', 'type', 'origin_lat', 'origin_lng', 'radius_km', 'operating_hours', 'priority', 'status'])]
-class ServiceZone extends Model
+class ServiceZone extends Model implements RevalidatesFrontend
 {
     /** @use HasFactory<ServiceZoneFactory> */
     use HasFactory;
+
+    /**
+     * Zones the storefront can actually serve: the zone is active and so is
+     * its state (see {@see State::scopeActive()}). Every public coverage and
+     * serviceability lookup goes through this, so the admin's active toggles
+     * are the single source of truth.
+     *
+     * @param  Builder<ServiceZone>  $query
+     * @return Builder<ServiceZone>
+     */
+    public function scopeServiceable(Builder $query): Builder
+    {
+        return $query
+            ->where('status', Status::Active)
+            ->whereHas('state', fn (Builder $state) => $state->active());
+    }
 
     /**
      * Get the state this zone belongs to.
@@ -78,6 +96,18 @@ class ServiceZone extends Model
         return $this->belongsToMany(StockLocation::class, 'service_zone_stock_location')
             ->using(ServiceZoneStockLocation::class)
             ->withTimestamps();
+    }
+
+    /**
+     * ISR tag for every storefront surface built from the coverage tree
+     * (home coverage chips, footer, mega menu, city pages).
+     *
+     * @param  'created'|'updated'|'deleted'  $event
+     * @return list<string>
+     */
+    public function revalidationTags(string $event): array
+    {
+        return ['locations'];
     }
 
     /**

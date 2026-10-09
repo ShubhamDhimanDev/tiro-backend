@@ -2,6 +2,7 @@
 
 use App\Enums\Status;
 use App\Models\ServiceZone;
+use App\Models\State;
 use Database\Seeders\LocationSeeder;
 
 /**
@@ -117,4 +118,28 @@ it('rejects a malformed postcode', function () {
     $response = $this->postJson('/api/v1/serviceability', ['postcode' => 'abcde']);
 
     $response->assertStatus(422)->assertJsonValidationErrors('postcode');
+});
+
+it('stops serving a state once it is switched off in the admin panel, and resumes when it is switched back on', function () {
+    $wa = State::query()->where('code', 'WA')->firstOrFail();
+
+    $wa->update(['is_active' => false]);
+
+    $this->postJson('/api/v1/serviceability', ['postcode' => '6168'])
+        ->assertOk()
+        ->assertJsonPath('serviceable', false)
+        ->assertJsonPath('service_zone_id', null);
+
+    // Other active states are unaffected.
+    $this->postJson('/api/v1/serviceability', ['suburb' => 'St Kilda'])->assertOk()->assertJsonPath('serviceable', true);
+
+    $wa->update(['is_active' => true]);
+
+    $this->postJson('/api/v1/serviceability', ['postcode' => '6168'])->assertOk()->assertJsonPath('serviceable', true);
+});
+
+it('does not treat a zone as serviceable when its own status is not active', function () {
+    ServiceZone::query()->where('name', 'Rockingham & Mandurah')->update(['status' => Status::Inactive]);
+
+    $this->postJson('/api/v1/serviceability', ['postcode' => '6168'])->assertOk()->assertJsonPath('serviceable', false);
 });

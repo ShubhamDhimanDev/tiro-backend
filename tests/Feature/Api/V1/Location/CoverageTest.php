@@ -79,6 +79,21 @@ it('omits suburbs outside every served zone, zones without a city, inactive zone
     expect($allSuburbs->all())->not->toContain('Ballarat')->and($allSuburbs->all())->not->toContain('Bondi');
 });
 
+it('lists only states switched on in the admin panel, and follows the toggle', function () {
+    ['nsw' => $nsw] = coverageFixture();
+    $slugs = fn () => collect($this->getJson('/api/v1/locations')->json('data'))->pluck('slug')->sort()->values()->all();
+
+    expect($slugs())->toBe(['nsw', 'vic']);
+
+    $nsw->update(['is_active' => false]);
+    expect($slugs())->toBe(['vic']);
+
+    $this->getJson('/api/v1/locations/nsw/sydney')->assertNotFound();
+
+    $nsw->update(['is_active' => true]);
+    expect($slugs())->toBe(['nsw', 'vic']);
+});
+
 it('merges several zones of one city and assigns a suburb to the same zone the serviceability check does', function () {
     ['vic' => $vic, 'melbourne' => $melbourne] = coverageFixture();
 
