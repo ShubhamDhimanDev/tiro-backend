@@ -40,9 +40,12 @@ class Brand extends Model implements RevalidatesFrontend
     }
 
     /**
-     * ISR tag for the storefront's brand landing/listing page. Fires only
-     * on update/delete — a newly created Brand has no previously-cached
-     * page to invalidate — see `App\Observers\FrontendRevalidationObserver`.
+     * ISR tags for the storefront's brand surfaces: `content:brand:list` for
+     * the home brands band and `/brands` index (so a new brand or a newly
+     * uploaded logo shows up there on every event, creation included), and
+     * `content:brand:{slug}` for the brand's own page, which has no
+     * previously-cached page to invalidate on create — see
+     * `App\Observers\FrontendRevalidationObserver`.
      *
      * No `default => throw` arm (unlike this project's usual exhaustive-enum
      * convention, e.g. `App\Enums\VehicleFitmentConfidence`): that
@@ -60,8 +63,8 @@ class Brand extends Model implements RevalidatesFrontend
     public function revalidationTags(string $event): array
     {
         return match ($event) {
-            'created' => [],
-            'updated', 'deleted' => ["content:brand:{$this->slug}"],
+            'created' => ['content:brand:list'],
+            'updated', 'deleted' => ['content:brand:list', "content:brand:{$this->slug}"],
         };
     }
 
