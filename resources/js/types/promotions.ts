@@ -49,6 +49,8 @@ export type Promotion = {
     stock_limit: number | null;
     stackable: boolean;
     status: Status;
+    /** Feature image shown on the storefront's offer cards; null = text-only card. */
+    image_path: string | null;
     eligibilities?: PromotionEligibility[];
     redemptions_count?: number;
     created_at: string;

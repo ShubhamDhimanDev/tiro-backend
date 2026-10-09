@@ -116,6 +116,32 @@ test('a promotions.manage user can update a promotion and it is audit-logged', f
     expect(AuditLog::query()->where('action', 'promotions.updated')->where('auditable_type', Promotion::class)->count())->toBe(1);
 });
 
+test('a feature image can be set on create, changed and cleared on update, without touching the public offer copy', function () {
+    $admin = promotionsManager();
+
+    $this->actingAs($admin)->post(route('admin.promotions.store'), validPromotionPayload(['image_path' => 'https://cdn.example.test/offer.webp']))->assertRedirect();
+    $promotion = Promotion::query()->where('name', 'Spring tyre sale')->firstOrFail();
+    expect($promotion->image_path)->toBe('https://cdn.example.test/offer.webp');
+
+    $promotion->forceFill(['slug' => 'spring-sale', 'title' => 'Spring sale', 'badge_text' => '10% off', 'is_public' => true])->save();
+
+    $this->actingAs($admin)->put(route('admin.promotions.update', $promotion), validPromotionPayload(['image_path' => 'https://cdn.example.test/new.webp']))->assertRedirect();
+    expect($promotion->refresh()->image_path)->toBe('https://cdn.example.test/new.webp')
+        ->and($promotion->slug)->toBe('spring-sale')
+        ->and($promotion->title)->toBe('Spring sale')
+        ->and($promotion->badge_text)->toBe('10% off')
+        ->and($promotion->is_public)->toBeTrue();
+
+    $this->actingAs($admin)->put(route('admin.promotions.update', $promotion), validPromotionPayload(['image_path' => null]))->assertRedirect();
+    expect($promotion->refresh()->image_path)->toBeNull();
+});
+
+test('an over-long feature image value is rejected', function () {
+    $this->actingAs(promotionsManager())
+        ->post(route('admin.promotions.store'), validPromotionPayload(['image_path' => str_repeat('a', 2049)]))
+        ->assertSessionHasErrors('image_path');
+});
+
 test('a promotions.manage user can delete a promotion with no redemption history and it is audit-logged', function () {
     $admin = promotionsManager();
     $promotion = Promotion::factory()->create();
