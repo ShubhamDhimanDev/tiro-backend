@@ -190,11 +190,9 @@ class DemoCatalogSeeder extends Seeder
 
     private const TIER_FACTOR = ['premium' => 1.0, 'mid' => 0.79, 'budget' => 0.62];
 
-    /** Demo depot name => [address, lat, lng]. */
+    /** Demo depot name => [address, lat, lng], created only if LocationSeeder hasn't already. */
     private const DEMO_DEPOTS = [
-        'Brisbane Depot' => ['1 Example Road, Brisbane QLD 4000', -27.4698, 153.0251],
         'Perth Depot' => ['1 Example Road, Perth WA 6000', -31.9505, 115.8605],
-        'Adelaide Depot' => ['1 Example Road, Adelaide SA 5000', -34.9285, 138.6007],
     ];
 
     public function run(): void
@@ -232,10 +230,7 @@ class DemoCatalogSeeder extends Seeder
         $hiddenBrandIds = Brand::query()->where('status', '!=', Status::Active)->pluck('id');
         TyreModel::query()->whereIn('brand_id', $hiddenBrandIds)->where('status', Status::Active)->update(['status' => Status::Inactive]);
 
-        $keepZones = [
-            'Melbourne Metro', 'Melbourne CBD Express', 'Geelong & Surrounds', 'Sydney Inner West',
-            'Brisbane Metro', 'Gold Coast', 'Perth Metro', 'Adelaide Metro',
-        ];
+        $keepZones = ['Melbourne Metro', 'Melbourne CBD Express', 'Perth Metro', 'Rockingham & Mandurah'];
         ServiceZone::query()->where('status', Status::Active)->whereNotIn('name', $keepZones)->update(['status' => Status::Inactive]);
 
         Promotion::query()->where('status', Status::Active)->where('name', 'like', 'E2E%')->update(['status' => Status::Inactive]);
@@ -345,7 +340,7 @@ class DemoCatalogSeeder extends Seeder
      */
     private function ensureDepots(): array
     {
-        $ids = StockLocation::query()->whereIn('name', ['Melbourne Depot', 'Sydney Depot'])->pluck('id')->all();
+        $ids = StockLocation::query()->where('name', 'Melbourne Depot')->pluck('id')->all();
 
         foreach (self::DEMO_DEPOTS as $name => [$address, $lat, $lng]) {
             $ids[] = StockLocation::query()->firstOrCreate(['name' => $name], ['address' => $address, 'lat' => $lat, 'lng' => $lng])->id;
@@ -446,9 +441,8 @@ class DemoCatalogSeeder extends Seeder
         $this->seedSuburbs();
 
         $depotByZone = [
-            'Melbourne Metro' => 'Melbourne Depot', 'Melbourne CBD Express' => 'Melbourne Depot', 'Geelong & Surrounds' => 'Melbourne Depot',
-            'Sydney Inner West' => 'Sydney Depot', 'Brisbane Metro' => 'Brisbane Depot', 'Gold Coast' => 'Brisbane Depot',
-            'Perth Metro' => 'Perth Depot', 'Adelaide Metro' => 'Adelaide Depot',
+            'Melbourne Metro' => 'Melbourne Depot', 'Melbourne CBD Express' => 'Melbourne Depot',
+            'Perth Metro' => 'Perth Depot', 'Rockingham & Mandurah' => 'Perth Depot',
         ];
 
         foreach ($depotByZone as $zoneName => $depotName) {
@@ -467,7 +461,7 @@ class DemoCatalogSeeder extends Seeder
     private function seedSuburbs(): void
     {
         $vic = State::query()->where('code', 'VIC')->first();
-        $nsw = State::query()->where('code', 'NSW')->first();
+        $wa = State::query()->where('code', 'WA')->first();
 
         foreach ([
             ['Carlton', '3053', -37.8002, 144.9669], ['Fitzroy', '3065', -37.7989, 144.9784], ['South Yarra', '3141', -37.8397, 144.9930],
@@ -476,21 +470,25 @@ class DemoCatalogSeeder extends Seeder
             Suburb::query()->firstOrCreate(['name' => $name, 'state_id' => $vic->id, 'postcode' => $postcode], ['lat' => $lat, 'lng' => $lng]);
         }
 
-        foreach ([['Geelong West', '3218', -38.1411, 144.3446], ['Belmont', '3216', -38.1778, 144.3524]] as [$name, $postcode, $lat, $lng]) {
-            Suburb::query()->firstOrCreate(['name' => $name, 'state_id' => $vic->id, 'postcode' => $postcode], ['lat' => $lat, 'lng' => $lng]);
+        // Inside the 25km Perth Metro radius, so they resolve by distance.
+        foreach ([
+            ['Northbridge', '6003', -31.9450, 115.8570], ['Victoria Park', '6100', -31.9760, 115.9050], ['Scarborough', '6019', -31.8935, 115.7580],
+            ['Cottesloe', '6011', -31.9945, 115.7585], ['Claremont', '6010', -31.9810, 115.7810], ['Morley', '6062', -31.8970, 115.9040],
+            ['Cannington', '6107', -32.0170, 115.9340],
+        ] as [$name, $postcode, $lat, $lng]) {
+            Suburb::query()->firstOrCreate(['name' => $name, 'state_id' => $wa->id, 'postcode' => $postcode], ['lat' => $lat, 'lng' => $lng]);
         }
 
-        $innerWest = ServiceZone::query()->where('name', 'Sydney Inner West')->first();
+        $southCorridor = ServiceZone::query()->where('name', 'Rockingham & Mandurah')->first();
         $attach = [];
 
         foreach ([
-            ['Leichhardt', '2040', -33.8832, 151.1566], ['Balmain', '2041', -33.8588, 151.1790], ['Glebe', '2037', -33.8795, 151.1856],
-            ['Ashfield', '2131', -33.8886, 151.1252], ['Burwood', '2134', -33.8774, 151.1040],
+            ['Safety Bay', '6169', -32.2972, 115.7075], ['Port Kennedy', '6172', -32.3667, 115.7500], ['Pinjarra', '6208', -32.6317, 115.8728],
         ] as [$name, $postcode, $lat, $lng]) {
-            $attach[] = Suburb::query()->firstOrCreate(['name' => $name, 'state_id' => $nsw->id, 'postcode' => $postcode], ['lat' => $lat, 'lng' => $lng])->id;
+            $attach[] = Suburb::query()->firstOrCreate(['name' => $name, 'state_id' => $wa->id, 'postcode' => $postcode], ['lat' => $lat, 'lng' => $lng])->id;
         }
 
-        $innerWest?->suburbs()->syncWithoutDetaching($attach);
+        $southCorridor?->suburbs()->syncWithoutDetaching($attach);
     }
 
     /**

@@ -3,7 +3,6 @@
 namespace App\Services\Location;
 
 use App\Enums\ServiceZoneType;
-use App\Enums\Status;
 use App\Models\ServiceZone;
 use App\Models\Suburb;
 use Illuminate\Database\Eloquent\Collection;
@@ -12,7 +11,7 @@ use Illuminate\Support\Collection as SupportCollection;
 /**
  * Implements the "Zone resolution / overlap rule" from
  * docs/architecture/02-api-contract.md (added 2026-09-10), evaluated against
- * `ACTIVE`-status zones only:
+ * serviceable zones only (`ACTIVE` status, in an active state):
  *
  * 1. An exact `suburb_list` match wins first.
  * 2. Else, evaluate `radius` zones — the suburb's lat/lng must fall within
@@ -60,7 +59,7 @@ class ServiceabilityResolver
     private function resolveSuburbListMatch(Collection $suburbs): ?ServiceZone
     {
         return ServiceZone::query()
-            ->where('status', Status::Active)
+            ->serviceable()
             ->where('type', ServiceZoneType::SuburbList)
             ->whereHas('suburbs', fn ($query) => $query->whereIn('suburbs.id', $suburbs->pluck('id')))
             ->orderByDesc('priority')
@@ -79,7 +78,7 @@ class ServiceabilityResolver
     private function resolveRadiusMatch(Collection $suburbs): ?ServiceZone
     {
         $radiusZones = ServiceZone::query()
-            ->where('status', Status::Active)
+            ->serviceable()
             ->where('type', ServiceZoneType::Radius)
             ->get();
 

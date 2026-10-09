@@ -17,6 +17,10 @@ use Illuminate\Database\Seeder;
 use Illuminate\Support\Str;
 
 /**
+ * TEST FIXTURE: not run by {@see DatabaseSeeder} (that imports the real
+ * catalogue via {@see CatalogImportSeeder}); the feature tests seed this
+ * directly for a small, deterministic catalogue.
+ *
  * Deliberately small, dev/test-only catalogue seed data — enough brand/
  * type/size variety to exercise search later, not a production catalogue
  * import. Covers every {@see TyreCategory} and {@see TyreType} at least

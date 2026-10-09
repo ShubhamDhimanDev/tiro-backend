@@ -14,14 +14,17 @@ use Illuminate\Database\Seeder;
  * served service zone to declare a city (`service_zones.city_name` /
  * `city_slug`).
  *
- * PLACEHOLDER DATA — the launch city list is not confirmed. The six cities
- * below (Sydney, Melbourne, Brisbane, Perth, Adelaide, Gold Coast) are
- * stand-ins so the storefront's location pages have something real to render.
- * The zones' radii, operating hours and suburbs for the cities LocationSeeder
- * does not already cover (Brisbane, Perth, Adelaide, Gold Coast) are invented
- * for that purpose only: there are no vans or technician shifts behind them,
- * so booking slots for these zones will be empty. Replace/edit via the admin
- * panel (Service zones: set "city") once the real list is decided.
+ * The client services only Melbourne (VIC) and Western Australia, so the two
+ * launch cities are Melbourne and Perth. Perth is the WA hub: its metro zone
+ * below plus LocationSeeder's "Rockingham & Mandurah" suburb-list zone both
+ * roll up under the one Perth city.
+ *
+ * PLACEHOLDER DATA — the Perth Metro zone's radius, operating hours and
+ * suburbs (LocationSeeder doesn't cover Perth's radius zone) are invented so
+ * the storefront's location pages have something real to render: there are no
+ * vans or technician shifts behind it, so booking slots for this zone will be
+ * empty. Replace/edit via the admin panel (Service zones: set "city") once
+ * the real service area is confirmed.
  *
  * Idempotent: keyed on zone name / suburb (name, state, postcode); re-running
  * neither duplicates rows nor overwrites admin edits to existing zones beyond
@@ -39,35 +42,15 @@ class LaunchCitiesSeeder extends Seeder
     private const EXISTING_ZONE_CITIES = [
         'Melbourne Metro' => ['Melbourne', 'melbourne'],
         'Melbourne CBD Express' => ['Melbourne', 'melbourne'],
-        'Geelong & Surrounds' => ['Geelong', 'geelong'],
-        'Sydney Inner West' => ['Sydney', 'sydney'],
+        'Rockingham & Mandurah' => ['Perth', 'perth'],
     ];
 
     /**
-     * PLACEHOLDER zones for launch cities LocationSeeder does not cover.
+     * PLACEHOLDER zones for launch areas LocationSeeder does not cover.
      *
      * @var list<array{name: string, city: string, slug: string, state: string, lat: float, lng: float, radius: int, suburbs: list<array{0: string, 1: string, 2: float, 3: float}>}>
      */
     private const PLACEHOLDER_ZONES = [
-        [
-            'name' => 'Brisbane Metro', 'city' => 'Brisbane', 'slug' => 'brisbane', 'state' => 'QLD',
-            'lat' => -27.4698, 'lng' => 153.0251, 'radius' => 25,
-            'suburbs' => [
-                ['Brisbane City', '4000', -27.4698, 153.0251],
-                ['Fortitude Valley', '4006', -27.4575, 153.0355],
-                ['South Brisbane', '4101', -27.4810, 153.0170],
-                ['Indooroopilly', '4068', -27.4996, 152.9730],
-            ],
-        ],
-        [
-            'name' => 'Gold Coast', 'city' => 'Gold Coast', 'slug' => 'gold-coast', 'state' => 'QLD',
-            'lat' => -28.0167, 'lng' => 153.4000, 'radius' => 20,
-            'suburbs' => [
-                ['Surfers Paradise', '4217', -28.0027, 153.4300],
-                ['Southport', '4215', -27.9670, 153.4130],
-                ['Burleigh Heads', '4220', -28.0930, 153.4510],
-            ],
-        ],
         [
             'name' => 'Perth Metro', 'city' => 'Perth', 'slug' => 'perth', 'state' => 'WA',
             'lat' => -31.9505, 'lng' => 115.8605, 'radius' => 25,
@@ -75,15 +58,6 @@ class LaunchCitiesSeeder extends Seeder
                 ['Perth', '6000', -31.9505, 115.8605],
                 ['Subiaco', '6008', -31.9480, 115.8250],
                 ['Fremantle', '6160', -32.0569, 115.7439],
-            ],
-        ],
-        [
-            'name' => 'Adelaide Metro', 'city' => 'Adelaide', 'slug' => 'adelaide', 'state' => 'SA',
-            'lat' => -34.9285, 'lng' => 138.6007, 'radius' => 25,
-            'suburbs' => [
-                ['Adelaide', '5000', -34.9285, 138.6007],
-                ['Glenelg', '5045', -34.9810, 138.5110],
-                ['Norwood', '5067', -34.9210, 138.6310],
             ],
         ],
     ];
@@ -104,7 +78,7 @@ class LaunchCitiesSeeder extends Seeder
                 continue;
             }
 
-            // A placeholder city is "served" only in the sense that it now
+            // A placeholder zone is "served" only in the sense that it now
             // appears in the public coverage tree.
             $state->update(['is_active' => true]);
 
@@ -139,6 +113,6 @@ class LaunchCitiesSeeder extends Seeder
             }
         }
 
-        $this->command?->info('Launch cities seeded (PLACEHOLDER list: Sydney, Melbourne, Brisbane, Perth, Adelaide, Gold Coast).');
+        $this->command?->info('Launch cities seeded (Melbourne VIC + Perth WA; Perth Metro zone is PLACEHOLDER data).');
     }
 }

@@ -6,6 +6,8 @@ use App\Models\Brand;
 use App\Models\ContentPage;
 use App\Models\Faq;
 use App\Models\Promotion;
+use App\Models\ServiceZone;
+use App\Models\State;
 use App\Models\TyreModel;
 use App\Models\TyreVariant;
 use Illuminate\Support\Facades\Bus;
@@ -70,23 +72,25 @@ it('dispatches only the global faq tag when category and page are unset', functi
     Bus::assertDispatched(NotifyFrontendRevalidation::class, fn ($job) => $job->tags === ['content:faq']);
 });
 
-it('does not dispatch on Brand create, but does on update and delete', function () {
+it('dispatches the brand list tag on create, and the list and page tags on update and delete', function () {
     Bus::fake();
     $brand = Brand::factory()->create(['slug' => 'bridgestone']);
-    Bus::assertNotDispatched(NotifyFrontendRevalidation::class);
+    Bus::assertDispatched(NotifyFrontendRevalidation::class, fn ($job) => $job->tags === ['content:brand:list']);
 
     Bus::fake();
-    $brand->update(['name' => 'Bridgestone Renamed']);
-    Bus::assertDispatched(NotifyFrontendRevalidation::class, fn ($job) => $job->tags === ['content:brand:bridgestone']);
+    $brand->update(['logo_path' => 'http://localhost/storage/media/bridgestone.webp']);
+    Bus::assertDispatched(NotifyFrontendRevalidation::class, fn ($job) => $job->tags === ['content:brand:list', 'content:brand:bridgestone']);
 
     Bus::fake();
     $brand->delete();
-    Bus::assertDispatched(NotifyFrontendRevalidation::class, fn ($job) => $job->tags === ['content:brand:bridgestone']);
+    Bus::assertDispatched(NotifyFrontendRevalidation::class, fn ($job) => $job->tags === ['content:brand:list', 'content:brand:bridgestone']);
 });
 
 it('does not dispatch on TyreModel create or an ISR-irrelevant field update', function () {
+    $brand = Brand::factory()->create(); // the brand's own create dispatch is not what's under test
+
     Bus::fake();
-    $model = TyreModel::factory()->create(['slug' => 'turanza-t005']);
+    $model = TyreModel::factory()->for($brand)->create(['slug' => 'turanza-t005']);
     Bus::assertNotDispatched(NotifyFrontendRevalidation::class);
 
     Bus::fake();
@@ -107,8 +111,10 @@ it('dispatches on a TyreModel ISR-relevant field update and on delete', function
 });
 
 it('does not dispatch on TyreVariant create or a price-only update', function () {
+    $model = TyreModel::factory()->create(); // parent chain (incl. its brand) is not what's under test
+
     Bus::fake();
-    $variant = TyreVariant::factory()->create();
+    $variant = TyreVariant::factory()->for($model)->create();
     Bus::assertNotDispatched(NotifyFrontendRevalidation::class);
 
     Bus::fake();
@@ -191,4 +197,21 @@ it('dispatches every linked ContentPage tag, on both update and delete, when a P
     Bus::fake();
     $promotion->delete();
     Bus::assertDispatched(NotifyFrontendRevalidation::class, fn ($job) => $job->tags === $expectedTags);
+});
+
+it('dispatches the locations tag when a state is toggled or a zone changes, but not for a new (inactive) state', function () {
+    Bus::fake();
+    $state = State::factory()->create(['is_active' => false]);
+    Bus::assertNotDispatched(NotifyFrontendRevalidation::class);
+
+    $state->update(['is_active' => true]);
+    Bus::assertDispatched(NotifyFrontendRevalidation::class, fn ($job) => $job->tags === ['locations']);
+
+    Bus::fake();
+    $zone = ServiceZone::factory()->create(['state_id' => $state->id]);
+    Bus::assertDispatched(NotifyFrontendRevalidation::class, fn ($job) => $job->tags === ['locations']);
+
+    Bus::fake();
+    $zone->update(['status' => 'inactive']);
+    Bus::assertDispatched(NotifyFrontendRevalidation::class, fn ($job) => $job->tags === ['locations']);
 });

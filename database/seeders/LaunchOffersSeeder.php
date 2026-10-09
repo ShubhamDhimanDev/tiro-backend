@@ -21,7 +21,7 @@ use Illuminate\Database\Seeder;
  * Delete or edit them in the admin panel before launch.
  *
  * Brand offers are skipped when that brand does not exist (run after
- * {@see CatalogueSeeder}).
+ * {@see CatalogImportSeeder}).
  */
 class LaunchOffersSeeder extends Seeder
 {

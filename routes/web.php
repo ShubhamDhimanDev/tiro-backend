@@ -3,7 +3,9 @@
 use App\Http\Controllers\Admin\DashboardController;
 use Illuminate\Support\Facades\Route;
 
-Route::inertia('/', 'welcome')->name('home');
+// There is no public site here (the storefront is a separate app): the root sends staff
+// to the dashboard, and the `auth` middleware bounces guests on to the login page.
+Route::redirect('/', '/admin/dashboard')->name('home');
 
 Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('admin/dashboard', DashboardController::class)->name('dashboard');

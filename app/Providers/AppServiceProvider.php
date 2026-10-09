@@ -13,6 +13,8 @@ use App\Models\ContentPage;
 use App\Models\Faq;
 use App\Models\PriceRule;
 use App\Models\Promotion;
+use App\Models\ServiceZone;
+use App\Models\State;
 use App\Models\TyreModel;
 use App\Models\TyreVariant;
 use App\Notifications\Channels\SmsChannel;
@@ -320,6 +322,8 @@ class AppServiceProvider extends ServiceProvider
         TyreModel::observe(FrontendRevalidationObserver::class);
         TyreVariant::observe(FrontendRevalidationObserver::class);
         Promotion::observe(FrontendRevalidationObserver::class);
+        State::observe(FrontendRevalidationObserver::class);
+        ServiceZone::observe(FrontendRevalidationObserver::class);
 
         // Phase 7 booking-lifecycle notifications — see
         // App\Observers\BookingNotificationObserver's docblock.

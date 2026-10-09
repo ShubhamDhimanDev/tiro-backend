@@ -3,7 +3,6 @@
 namespace App\Services\Location;
 
 use App\Enums\ServiceZoneType;
-use App\Enums\Status;
 use App\Models\ServiceZone;
 use App\Models\Suburb;
 use Illuminate\Database\Eloquent\Collection as EloquentCollection;
@@ -14,8 +13,8 @@ use Illuminate\Support\Str;
  * Builds the public state > city > suburb coverage tree from the existing
  * zone/suburb data — nothing is stored separately.
  *
- * - A **city** is the set of active service zones sharing a `city_slug`
- *   (zones with no `city_name` are not listed publicly).
+ * - A **city** is the set of serviceable zones (active zone, active state)
+ *   sharing a `city_slug` (zones with no `city_name` are not listed publicly).
  * - A suburb belongs to a city when {@see ServiceabilityResolver}'s rule
  *   (exact `suburb_list` match first, else nearest radius zone, priority
  *   breaking ties) resolves it to one of that city's zones — i.e. the
@@ -37,13 +36,13 @@ class CoverageService
     {
         /** @var EloquentCollection<int, ServiceZone> $zones */
         $zones = ServiceZone::query()
-            ->where('status', Status::Active)
+            ->serviceable()
             ->with(['state', 'suburbs:id'])
             ->orderByDesc('priority')
             ->orderBy('id')
             ->get();
 
-        $cityZones = $zones->filter(fn (ServiceZone $zone): bool => $zone->city_slug !== null && $zone->state?->status === Status::Active);
+        $cityZones = $zones->filter(fn (ServiceZone $zone): bool => $zone->city_slug !== null);
 
         if ($cityZones->isEmpty()) {
             return [];

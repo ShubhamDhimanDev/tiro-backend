@@ -1,3 +1,4 @@
+import { ImageField } from '@/components/image-field';
 import { ListToolbar, useListFilter } from '@/components/list-toolbar';
 import { formatDate, toDateInputValue } from '@/lib/date';
 import { Head, router, useForm } from '@inertiajs/react';
@@ -67,6 +68,8 @@ type PromotionFormData = {
     usage_limit: string;
     stock_limit: string;
     stackable: boolean;
+    /** Feature image URL (media picker or pasted); empty = none. */
+    image_path: string;
     status: Status;
 };
 
@@ -383,6 +386,7 @@ function PromotionFormDialog({
                 ? ''
                 : String(promotion.stock_limit),
         stackable: promotion?.stackable ?? false,
+        image_path: promotion?.image_path ?? '',
         status: promotion?.status ?? 'draft',
     });
 
@@ -413,6 +417,7 @@ function PromotionFormDialog({
             usage_limit: form.data.usage_limit || null,
             stock_limit: form.data.stock_limit || null,
             stackable: form.data.stackable,
+            image_path: form.data.image_path.trim() || null,
             status: form.data.status,
         };
 
@@ -612,6 +617,24 @@ function PromotionFormDialog({
                     <InputError message={form.errors.stackable} />
 
                     <div className="grid gap-2">
+                        <ImageField
+                            id="image_path"
+                            label="Feature image (optional)"
+                            value={form.data.image_path}
+                            onChange={(v) => form.setData('image_path', v)}
+                        />
+                        <InputError message={form.errors.image_path} />
+                        <p className="text-muted-foreground text-xs">
+                            A finished promo graphic, square (about
+                            1200×1200). When set, the storefront shows it as
+                            the offer card on the home page, the deals list
+                            and the offer page. The offer text is then only
+                            read out to screen readers, so put the headline in
+                            the image. Leave empty for the standard text card.
+                        </p>
+                    </div>
+
+                    <div className="grid gap-2">
                         <Label htmlFor="status">Status</Label>
                         <Select
                             value={form.data.status}
@@ -747,6 +770,13 @@ export default function PromotionsCampaignsIndex({
                                         className="border-b last:border-0"
                                     >
                                         <td className="py-2 font-medium">
+                                            {promotion.image_path && (
+                                                <img
+                                                    src={promotion.image_path}
+                                                    alt=""
+                                                    className="bg-muted/40 mr-2 inline-block size-8 rounded border object-cover align-middle"
+                                                />
+                                            )}
                                             {promotion.name}
                                             {promotion.stackable && (
                                                 <Badge
