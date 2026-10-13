@@ -11,7 +11,7 @@ use Database\Seeders\LocationSeeder;
 /**
  * Phase 6a placeholder seeders: launch cities and public offers.
  */
-it('tags the existing zones and adds the Perth placeholder so the public tree is Melbourne and Western Australia only', function () {
+it('tags the zones with the Melbourne city so the public tree is Melbourne only', function () {
     $this->seed(LocationSeeder::class);
     $this->seed(LaunchCitiesSeeder::class);
 
@@ -20,24 +20,32 @@ it('tags the existing zones and adds the Perth placeholder so the public tree is
         ->flatMap(fn ($state) => collect($state['cities'])->map(fn ($city) => $city['name']))
         ->sort()->values()->all();
 
-    expect($tree->pluck('code')->sort()->values()->all())->toBe(['VIC', 'WA'])
-        ->and($cities)->toBe(['Melbourne', 'Perth']);
-    expect(ServiceZone::query()->where('city_slug', 'melbourne')->count())->toBe(2)
-        ->and(ServiceZone::query()->where('city_slug', 'perth')->count())->toBe(2)
-        ->and(ServiceZone::query()->where('name', 'Perth Metro')->value('type'))->toBe(ServiceZoneType::Radius);
+    expect($tree->pluck('code')->all())->toBe(['VIC'])
+        ->and($cities)->toBe(['Melbourne']);
+    expect(ServiceZone::query()->where('city_slug', 'melbourne')->count())->toBe(3)
+        ->and(ServiceZone::query()->whereNull('city_slug')->count())->toBe(0)
+        ->and(ServiceZone::query()->where('name', 'Melbourne South East')->value('type'))->toBe(ServiceZoneType::SuburbList);
 });
 
 it('lists seeded suburbs under their city and keeps them serviceable', function () {
     $this->seed(LocationSeeder::class);
     $this->seed(LaunchCitiesSeeder::class);
 
-    $detail = $this->getJson('/api/v1/locations/wa/perth')->assertOk()->json('data');
+    $detail = $this->getJson('/api/v1/locations/vic/melbourne')->assertOk()->json('data');
 
     expect(collect($detail['suburbs'])->pluck('name')->all())
-        ->toBe(['Baldivis', 'Fremantle', 'Kwinana Town Centre', 'Mandurah', 'Perth', 'Rockingham', 'Subiaco']);
+        ->toBe(['Cranbourne', 'Frankston', 'Melbourne', 'Narre Warren', 'Pakenham', 'Richmond', 'St Kilda']);
     foreach ($detail['suburbs'] as $suburb) {
         expect($this->postJson('/api/v1/serviceability', ['postcode' => $suburb['postcode']])->json('service_zone_id'))->toBe($suburb['service_zone_id']);
     }
+});
+
+it('does not serve Perth or any other WA area', function () {
+    $this->seed(LocationSeeder::class);
+    $this->seed(LaunchCitiesSeeder::class);
+
+    $this->getJson('/api/v1/locations/wa/perth')->assertNotFound();
+    $this->postJson('/api/v1/serviceability', ['postcode' => '6000'])->assertOk()->assertJsonPath('serviceable', false);
 });
 
 it('seeds launch cities idempotently', function () {

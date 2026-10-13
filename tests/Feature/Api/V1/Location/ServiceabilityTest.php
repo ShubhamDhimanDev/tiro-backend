@@ -19,28 +19,28 @@ beforeEach(function () {
 });
 
 it('resolves an exact suburb_list match by postcode', function () {
-    $response = $this->postJson('/api/v1/serviceability', ['postcode' => '6168']);
+    $response = $this->postJson('/api/v1/serviceability', ['postcode' => '3199']);
 
-    $zone = ServiceZone::query()->where('name', 'Rockingham & Mandurah')->firstOrFail();
+    $zone = ServiceZone::query()->where('name', 'Melbourne South East')->firstOrFail();
 
     $response->assertOk()->assertExactJson([
         'serviceable' => true,
         'service_zone_id' => $zone->id,
-        'label' => 'Rockingham & Mandurah',
+        'label' => 'Melbourne South East',
         'suggested_areas' => [],
     ]);
 });
 
 it('resolves an exact suburb_list match by suburb name, case-insensitively', function () {
-    $response = $this->postJson('/api/v1/serviceability', ['suburb' => 'mAndurah']);
+    $response = $this->postJson('/api/v1/serviceability', ['suburb' => 'fRankston']);
 
     $response->assertOk()
         ->assertJsonPath('serviceable', true)
-        ->assertJsonPath('label', 'Rockingham & Mandurah');
+        ->assertJsonPath('label', 'Melbourne South East');
 });
 
 it('reports not serviceable for a suburb outside every zone', function () {
-    $response = $this->postJson('/api/v1/serviceability', ['suburb' => 'Bunbury']);
+    $response = $this->postJson('/api/v1/serviceability', ['suburb' => 'Ballarat']);
 
     $response->assertOk()->assertExactJson([
         'serviceable' => false,
@@ -121,25 +121,32 @@ it('rejects a malformed postcode', function () {
 });
 
 it('stops serving a state once it is switched off in the admin panel, and resumes when it is switched back on', function () {
-    $wa = State::query()->where('code', 'WA')->firstOrFail();
+    $vic = State::query()->where('code', 'VIC')->firstOrFail();
 
-    $wa->update(['is_active' => false]);
+    $vic->update(['is_active' => false]);
 
-    $this->postJson('/api/v1/serviceability', ['postcode' => '6168'])
+    $this->postJson('/api/v1/serviceability', ['postcode' => '3199'])
         ->assertOk()
         ->assertJsonPath('serviceable', false)
         ->assertJsonPath('service_zone_id', null);
+    $this->postJson('/api/v1/serviceability', ['suburb' => 'St Kilda'])->assertOk()->assertJsonPath('serviceable', false);
 
-    // Other active states are unaffected.
+    $vic->update(['is_active' => true]);
+
+    $this->postJson('/api/v1/serviceability', ['postcode' => '3199'])->assertOk()->assertJsonPath('serviceable', true);
     $this->postJson('/api/v1/serviceability', ['suburb' => 'St Kilda'])->assertOk()->assertJsonPath('serviceable', true);
-
-    $wa->update(['is_active' => true]);
-
-    $this->postJson('/api/v1/serviceability', ['postcode' => '6168'])->assertOk()->assertJsonPath('serviceable', true);
 });
 
 it('does not treat a zone as serviceable when its own status is not active', function () {
-    ServiceZone::query()->where('name', 'Rockingham & Mandurah')->update(['status' => Status::Inactive]);
+    ServiceZone::query()->where('name', 'Melbourne South East')->update(['status' => Status::Inactive]);
 
-    $this->postJson('/api/v1/serviceability', ['postcode' => '6168'])->assertOk()->assertJsonPath('serviceable', false);
+    $this->postJson('/api/v1/serviceability', ['postcode' => '3199'])->assertOk()->assertJsonPath('serviceable', false);
+
+    // The other Melbourne zones are unaffected.
+    $this->postJson('/api/v1/serviceability', ['suburb' => 'St Kilda'])->assertOk()->assertJsonPath('serviceable', true);
+});
+
+it('does not serve Perth or any other WA postcode, because only Melbourne is seeded', function () {
+    $this->postJson('/api/v1/serviceability', ['postcode' => '6000'])->assertOk()->assertJsonPath('serviceable', false);
+    $this->postJson('/api/v1/serviceability', ['suburb' => 'Perth'])->assertOk()->assertJsonPath('serviceable', false);
 });
