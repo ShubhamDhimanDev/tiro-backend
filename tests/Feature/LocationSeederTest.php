@@ -15,11 +15,11 @@ use Database\Seeders\LocationSeeder;
  * for: at least one radius-type and one suburb_list-type zone, each with
  * suburbs actually inside their matching radius/list.
  */
-it('seeds all 8 AU states/territories with only VIC and WA marked active', function () {
+it('seeds all 8 AU states/territories with only VIC (Melbourne) marked active', function () {
     $this->seed(LocationSeeder::class);
 
     expect(State::query()->count())->toBe(8)
-        ->and(State::query()->where('is_active', true)->pluck('code')->sort()->values()->all())->toBe(['VIC', 'WA'])
+        ->and(State::query()->where('is_active', true)->pluck('code')->sort()->values()->all())->toBe(['VIC'])
         ->and(State::query()->pluck('code')->sort()->values()->all())
         ->toBe(['ACT', 'NSW', 'NT', 'QLD', 'SA', 'TAS', 'VIC', 'WA']);
 });
@@ -39,6 +39,17 @@ it('seeds at least one radius-type zone whose radius genuinely contains a seeded
     });
 
     expect($suburbInside)->not->toBeNull();
+});
+
+it('seeds only Melbourne: every zone is in VIC and none is a Perth/WA zone', function () {
+    $this->seed(LocationSeeder::class);
+
+    $vic = State::query()->where('code', 'VIC')->firstOrFail();
+
+    expect(ServiceZone::query()->pluck('name')->sort()->values()->all())
+        ->toBe(['Melbourne CBD Express', 'Melbourne Metro', 'Melbourne South East'])
+        ->and(ServiceZone::query()->where('state_id', '!=', $vic->id)->count())->toBe(0)
+        ->and(Suburb::query()->whereHas('state', fn ($q) => $q->where('code', '!=', 'VIC'))->count())->toBe(0);
 });
 
 it('seeds at least one suburb_list-type zone with real suburb membership', function () {
@@ -61,7 +72,7 @@ it('seeds suburbs with real, non-zero coordinates', function () {
 it('links each stock location to at least one service zone', function () {
     $this->seed(LocationSeeder::class);
 
-    expect(StockLocation::query()->count())->toBe(2);
+    expect(StockLocation::query()->pluck('name')->all())->toBe(['Melbourne Depot']);
 
     foreach (StockLocation::query()->get() as $stockLocation) {
         expect($stockLocation->serviceZones()->count())->toBeGreaterThan(0);

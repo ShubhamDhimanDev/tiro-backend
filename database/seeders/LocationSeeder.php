@@ -14,13 +14,14 @@ use Illuminate\Database\Seeder;
  * Deliberately small, dev/test-only seed data for the Location &
  * serviceability domain — NOT a production launch-geography dataset (see
  * docs/architecture/06-open-decisions.md item 4). The client services only
- * Melbourne (VIC) and Western Australia, so this seeds all 8 AU
- * states/territories with only VIC and WA marked active; two Melbourne
- * radius-type zones and one WA suburb_list-type zone (each with real suburbs
- * actually inside their matching radius/list, for later
- * serviceability-resolution tests); and two stock locations (Melbourne and
- * Perth) linked to those zones. The Perth metro radius zone is added by
- * {@see LaunchCitiesSeeder}.
+ * Melbourne (VIC), so this seeds all 8 AU states/territories with only VIC
+ * marked active; two Melbourne radius-type zones and one Melbourne
+ * suburb_list-type zone for the outer south-east suburbs beyond the 25km
+ * radius (each with real suburbs actually inside their matching radius/list,
+ * for later serviceability-resolution tests); and one stock location (the
+ * Melbourne depot) linked to those zones. Nothing outside Melbourne is
+ * served: other areas are switched on in the admin panel when the real
+ * service area grows.
  *
  * The two Melbourne radius zones (Melbourne Metro and Melbourne CBD Express)
  * share the same origin on purpose — a real-world "general metro area" vs.
@@ -41,7 +42,7 @@ class LocationSeeder extends Seeder
             ['code' => 'NSW', 'name' => 'New South Wales', 'is_active' => false],
             ['code' => 'VIC', 'name' => 'Victoria', 'is_active' => true],
             ['code' => 'QLD', 'name' => 'Queensland', 'is_active' => false],
-            ['code' => 'WA', 'name' => 'Western Australia', 'is_active' => true],
+            ['code' => 'WA', 'name' => 'Western Australia', 'is_active' => false],
             ['code' => 'SA', 'name' => 'South Australia', 'is_active' => false],
             ['code' => 'TAS', 'name' => 'Tasmania', 'is_active' => false],
             ['code' => 'ACT', 'name' => 'Australian Capital Territory', 'is_active' => false],
@@ -52,7 +53,6 @@ class LocationSeeder extends Seeder
         ]))->keyBy('code');
 
         $vic = $states->get('VIC');
-        $wa = $states->get('WA');
 
         // Radius-type zone around Melbourne CBD.
         $melbourneMetro = ServiceZone::query()->create([
@@ -99,15 +99,15 @@ class LocationSeeder extends Seeder
             'status' => Status::Active,
         ]);
 
-        // Suburb-list-type zone covering Perth's southern corridor, beyond the
-        // 25km Perth Metro radius that LaunchCitiesSeeder adds. origin_lat/lng
-        // kept as a display centroid only — not used for resolution.
-        $rockinghamMandurah = ServiceZone::query()->create([
-            'name' => 'Rockingham & Mandurah',
-            'state_id' => $wa->id,
+        // Suburb-list-type zone covering Melbourne's outer south-east suburbs,
+        // beyond the 25km Melbourne Metro radius. origin_lat/lng kept as a
+        // display centroid only — not used for resolution.
+        $melbourneSouthEast = ServiceZone::query()->create([
+            'name' => 'Melbourne South East',
+            'state_id' => $vic->id,
             'type' => ServiceZoneType::SuburbList,
-            'origin_lat' => -32.4000,
-            'origin_lng' => 115.7300,
+            'origin_lat' => -38.0800,
+            'origin_lng' => 145.2900,
             'radius_km' => null,
             'operating_hours' => [
                 'mon' => ['open' => '08:00', 'close' => '18:00'],
@@ -124,8 +124,8 @@ class LocationSeeder extends Seeder
 
         // VIC suburbs — Melbourne CBD/Richmond/St Kilda sit inside the
         // Melbourne Metro 25km radius; Geelong and Ballarat are deliberately
-        // outside it (the client services Melbourne only), for later "not
-        // serviceable" test fixtures.
+        // outside every zone (the client services Melbourne only), for later
+        // "not serviceable" test fixtures.
         $melbourneCbd = Suburb::query()->create([
             'name' => 'Melbourne', 'state_id' => $vic->id, 'postcode' => '3000',
             'lat' => -37.8136, 'lng' => 144.9631,
@@ -147,49 +147,39 @@ class LocationSeeder extends Seeder
             'lat' => -37.5622, 'lng' => 143.8503,
         ]);
 
-        // WA suburbs — Rockingham/Baldivis/Mandurah/Kwinana are explicit
-        // members of the Rockingham & Mandurah suburb_list zone; Bunbury
-        // deliberately isn't, for later "not serviceable" test fixtures.
-        $rockingham = Suburb::query()->create([
-            'name' => 'Rockingham', 'state_id' => $wa->id, 'postcode' => '6168',
-            'lat' => -32.2775, 'lng' => 115.7297,
+        // Melbourne South East suburbs — explicit members of the suburb_list
+        // zone, all well outside the 25km Metro radius, so they only resolve
+        // through the list.
+        $frankston = Suburb::query()->create([
+            'name' => 'Frankston', 'state_id' => $vic->id, 'postcode' => '3199',
+            'lat' => -38.1440, 'lng' => 145.1230,
         ]);
-        $baldivis = Suburb::query()->create([
-            'name' => 'Baldivis', 'state_id' => $wa->id, 'postcode' => '6171',
-            'lat' => -32.3347, 'lng' => 115.8093,
+        $cranbourne = Suburb::query()->create([
+            'name' => 'Cranbourne', 'state_id' => $vic->id, 'postcode' => '3977',
+            'lat' => -38.1000, 'lng' => 145.2833,
         ]);
-        $mandurah = Suburb::query()->create([
-            'name' => 'Mandurah', 'state_id' => $wa->id, 'postcode' => '6210',
-            'lat' => -32.5269, 'lng' => 115.7217,
+        $narreWarren = Suburb::query()->create([
+            'name' => 'Narre Warren', 'state_id' => $vic->id, 'postcode' => '3805',
+            'lat' => -38.0270, 'lng' => 145.3000,
         ]);
-        $kwinana = Suburb::query()->create([
-            'name' => 'Kwinana Town Centre', 'state_id' => $wa->id, 'postcode' => '6167',
-            'lat' => -32.2397, 'lng' => 115.7714,
-        ]);
-        Suburb::query()->create([
-            'name' => 'Bunbury', 'state_id' => $wa->id, 'postcode' => '6230',
-            'lat' => -33.3271, 'lng' => 115.6414,
+        $pakenham = Suburb::query()->create([
+            'name' => 'Pakenham', 'state_id' => $vic->id, 'postcode' => '3810',
+            'lat' => -38.0700, 'lng' => 145.4833,
         ]);
 
-        $rockinghamMandurah->suburbs()->attach([$rockingham->id, $baldivis->id, $mandurah->id, $kwinana->id]);
+        $melbourneSouthEast->suburbs()->attach([$frankston->id, $cranbourne->id, $narreWarren->id, $pakenham->id]);
 
         $melbourneDepot = StockLocation::query()->create([
             'name' => 'Melbourne Depot',
             'address' => '1 Example Street, Melbourne VIC 3000',
             'lat' => -37.8200, 'lng' => 144.9600,
         ]);
-        $perthDepot = StockLocation::query()->create([
-            'name' => 'Perth Depot',
-            'address' => '1 Example Road, Perth WA 6000',
-            'lat' => -31.9505, 'lng' => 115.8605,
-        ]);
 
-        // Melbourne Depot backs both Melbourne radius zones — demonstrates a
+        // Melbourne Depot backs all three Melbourne zones — demonstrates a
         // single StockLocation backing multiple ServiceZones.
-        $melbourneDepot->serviceZones()->attach([$melbourneMetro->id, $melbourneCbdExpress->id]);
-        $perthDepot->serviceZones()->attach([$rockinghamMandurah->id]);
+        $melbourneDepot->serviceZones()->attach([$melbourneMetro->id, $melbourneCbdExpress->id, $melbourneSouthEast->id]);
 
-        $this->command->info('Locations seeded: '.$states->count().' states, 3 service zones, '.
-            Suburb::query()->count().' suburbs, 2 stock locations.');
+        $this->command->info('Locations seeded: '.$states->count().' states (VIC active), 3 service zones, '.
+            Suburb::query()->count().' suburbs, 1 stock location.');
     }
 }
