@@ -41,7 +41,12 @@ class StripePaymentGateway implements PaymentGateway
     {
         $intent = $this->stripe->paymentIntents->retrieve($paymentIntentId);
 
-        return new PaymentIntentResult($intent->id, (string) $intent->client_secret, $intent->status);
+        // `isset()` for the same "undefined property" reason documented in
+        // StripeWebhookController::resolvePaymentMethod(). Unexpanded, so a
+        // plain id string; a non-string (expanded object) is ignored.
+        $paymentMethodId = isset($intent->payment_method) && is_string($intent->payment_method) ? $intent->payment_method : null;
+
+        return new PaymentIntentResult($intent->id, (string) $intent->client_secret, $intent->status, $paymentMethodId, $intent->toArray());
     }
 
     public function createRefund(string $paymentIntentId, ?int $amountCents, string $idempotencyKey): RefundResult

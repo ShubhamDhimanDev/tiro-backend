@@ -44,6 +44,9 @@ class FakeStripePaymentGateway extends StripePaymentGateway
     /** @var array<string, string> */
     public array $intentStatusOverrides = [];
 
+    /** @var array<string, string> PaymentIntent id => the `payment_method` id retrievePaymentIntent() reports */
+    public array $intentPaymentMethodIds = [];
+
     /** @var array<string, array{type: string, walletType: string|null}> */
     public array $paymentMethodOverrides = [];
 
@@ -65,7 +68,15 @@ class FakeStripePaymentGateway extends StripePaymentGateway
     {
         $this->retrievedIntentIds[] = $paymentIntentId;
 
-        return new PaymentIntentResult($paymentIntentId, "{$paymentIntentId}_secret_refetched", $this->intentStatusOverrides[$paymentIntentId] ?? 'succeeded');
+        $status = $this->intentStatusOverrides[$paymentIntentId] ?? 'succeeded';
+
+        return new PaymentIntentResult(
+            $paymentIntentId,
+            "{$paymentIntentId}_secret_refetched",
+            $status,
+            $this->intentPaymentMethodIds[$paymentIntentId] ?? null,
+            ['id' => $paymentIntentId, 'object' => 'payment_intent', 'status' => $status],
+        );
     }
 
     public function createRefund(string $paymentIntentId, ?int $amountCents, string $idempotencyKey): RefundResult

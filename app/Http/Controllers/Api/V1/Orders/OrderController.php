@@ -27,6 +27,7 @@ use App\Services\Bookings\FlexibleBookingPolicy;
 use App\Services\Commerce\PayPalCaptureService;
 use App\Services\Commerce\PricingLine;
 use App\Services\Commerce\PricingService;
+use App\Services\Commerce\StripePaymentConfirmationService;
 use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -62,6 +63,7 @@ class OrderController extends Controller
         private readonly PricingService $pricing,
         private readonly PaymentGateway $gateway,
         private readonly PayPalCaptureService $captureService,
+        private readonly StripePaymentConfirmationService $stripeConfirmation,
     ) {}
 
     public function store(StoreOrderRequest $request): JsonResponse
@@ -272,6 +274,28 @@ class OrderController extends Controller
         if (! $outcome->succeeded) {
             return response()->json(['message' => $outcome->declineReason ?? __('PayPal declined this payment. Please try another PayPal funding source.')], 422);
         }
+
+        $order->refresh()->load(['lineItems', 'booking']);
+
+        return response()->json(['data' => $this->orderPayload($order, payment: null, paymentDisplay: null, guestToken: null, includeLineItemsAndBooking: true)]);
+    }
+
+    /**
+     * `POST /api/v1/orders/{order}/stripe-confirm` — Stripe only. Called by
+     * the frontend right after `stripe.confirmPayment()` resolves (and from
+     * the redirect `return_url` page). Re-reads the PaymentIntent from Stripe
+     * server-side and confirms the order only if Stripe reports `succeeded`;
+     * any other status (e.g. `processing`) returns the order unchanged, still
+     * pending, for the webhook to settle. Always `200` with the current
+     * order payload — callers read `payment_status` to see what happened.
+     * Naturally idempotent (an already-succeeded charge makes no Stripe
+     * call), so no `Idempotency-Key` is required. Same auth as `show()`.
+     */
+    public function stripeConfirm(Request $request, Order $order): JsonResponse
+    {
+        $this->authorizeOrderAccess($request, $order);
+
+        $this->stripeConfirmation->confirmOrder($order);
 
         $order->refresh()->load(['lineItems', 'booking']);
 
