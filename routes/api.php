@@ -170,6 +170,17 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
         Route::post('{order}/paypal-capture', [OrderController::class, 'paypalCapture'])
             ->middleware('idempotency')
             ->name('paypal-capture');
+
+        // Stripe only — called by the frontend right after
+        // `stripe.confirmPayment()` resolves, so the order confirms
+        // immediately instead of waiting on the webhook (which remains the
+        // backstop). Server-side re-reads the PaymentIntent from Stripe;
+        // naturally idempotent, so no `idempotency` middleware. Same auth as
+        // `show` above. See docs/architecture/02-api-contract.md's
+        // `POST /api/v1/orders/{order}/stripe-confirm` section.
+        Route::post('{order}/stripe-confirm', [OrderController::class, 'stripeConfirm'])
+            ->middleware('throttle:checkout-writes')
+            ->name('stripe-confirm');
     });
 
     // See docs/architecture/02-api-contract.md's "Promotions &

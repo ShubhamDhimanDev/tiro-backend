@@ -3,15 +3,13 @@
 namespace App\Http\Controllers\Api\V1\Webhooks;
 
 use App\Enums\OrderStatus;
-use App\Enums\PaymentMethod;
 use App\Enums\PaymentStatus;
 use App\Enums\PaymentTransactionStatus;
 use App\Enums\PaymentType;
 use App\Http\Controllers\Controller;
 use App\Models\Order;
 use App\Models\Payment;
-use App\Services\Commerce\PaymentConfirmationService;
-use App\Services\Payments\StripePaymentGateway;
+use App\Services\Commerce\StripePaymentConfirmationService;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
 use Illuminate\Support\Facades\Cache;
@@ -45,8 +43,7 @@ class StripeWebhookController extends Controller
     private const EVENT_DEDUP_TTL_HOURS = 24;
 
     public function __construct(
-        private readonly StripePaymentGateway $gateway,
-        private readonly PaymentConfirmationService $confirmation,
+        private readonly StripePaymentConfirmationService $confirmation,
     ) {}
 
     public function handle(Request $request): Response
@@ -131,86 +128,16 @@ class StripeWebhookController extends Controller
         /** @var PaymentIntent $paymentIntent */
         $paymentIntent = $event->data->object;
 
-        // Resolved once, before the transaction (same "gateway call first,
-        // DB writes after" shape as RefundService::refund()) rather than
-        // while holding the row locks below — this is a real Stripe API
-        // round trip (see PaymentMethodResult's docblock for why it can't
-        // just be read off the event payload).
-        $method = $this->resolvePaymentMethod($paymentIntent);
-
-        DB::transaction(function () use ($paymentIntent, $method): void {
-            $payment = Payment::query()
-                ->where('gateway_reference', $paymentIntent->id)
-                ->where('type', PaymentType::Charge)
-                ->lockForUpdate()
-                ->first();
-
-            if ($payment === null) {
-                Log::warning('Stripe webhook: payment_intent.succeeded for an unknown gateway_reference.', ['payment_intent_id' => $paymentIntent->id]);
-
-                return;
-            }
-
-            // Replay-safety layer 2 (DB state-check backstop): already
-            // processed — no-op, covers a cache entry that was evicted or
-            // never set.
-            if ($payment->status === PaymentTransactionStatus::Succeeded) {
-                return;
-            }
-
-            $order = Order::query()->whereKey($payment->order_id)->lockForUpdate()->first();
-
-            if ($order === null) {
-                Log::warning('Stripe webhook: payment_intent.succeeded for a payment with no matching order.', ['payment_id' => $payment->id]);
-
-                return;
-            }
-
-            $payment->forceFill([
-                'status' => PaymentTransactionStatus::Succeeded,
-                // Falls back to the row's existing (placeholder) value only
-                // for the "shouldn't happen" case resolvePaymentMethod()
-                // itself already logged — Stripe's own contract guarantees
-                // a succeeded PaymentIntent has a payment_method.
-                'method' => $method ?? $payment->method,
-                'raw_response' => $paymentIntent->toArray(),
-            ])->save();
-
-            $this->confirmation->confirm($order);
-        });
-    }
-
-    /**
-     * Resolves the real instrument used from Stripe's own report — see
-     * `PaymentMethod::fromStripe()`'s docblock for why this can't be known
-     * at `Payment`-row creation time. Returns `null` (leaving the row's
-     * existing placeholder value untouched by the caller) only for the
-     * "shouldn't happen" case of a succeeded PaymentIntent with no
-     * `payment_method` at all — Stripe's own contract guarantees one is set
-     * by this point, so this is treated the same as this file's other
-     * "missing linked data" cases (log + continue) rather than
-     * `PaymentMethod::fromStripe()`'s own closed-vocabulary
-     * `default => throw`, which is reserved for a *present but unrecognized*
-     * value.
-     */
-    private function resolvePaymentMethod(PaymentIntent $paymentIntent): ?PaymentMethod
-    {
         // `isset()` (routed through StripeObject::__isset()) rather than a
         // direct property read — avoids the SDK's own "undefined property"
         // notice-level log line for the (expected-absent-per-Stripe's-
         // contract, but real in a malformed/legacy event) case where the
         // key isn't present in `_values` at all.
-        $paymentMethodId = isset($paymentIntent->payment_method) ? $paymentIntent->payment_method : null;
+        $paymentMethodId = isset($paymentIntent->payment_method) && is_string($paymentIntent->payment_method)
+            ? $paymentIntent->payment_method
+            : null;
 
-        if (! is_string($paymentMethodId) || $paymentMethodId === '') {
-            Log::warning('Stripe webhook: payment_intent.succeeded with no payment_method set.', ['payment_intent_id' => $paymentIntent->id]);
-
-            return null;
-        }
-
-        $resolved = $this->gateway->retrievePaymentMethod($paymentMethodId);
-
-        return PaymentMethod::fromStripe($resolved->type, $resolved->walletType);
+        $this->confirmation->confirmSucceededIntent($paymentIntent->id, $paymentMethodId, $paymentIntent->toArray());
     }
 
     /**
