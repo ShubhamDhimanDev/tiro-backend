@@ -17,6 +17,7 @@ use App\Models\ServiceZone;
 use App\Services\Bookings\BookingLineItemInput;
 use App\Services\Bookings\DurationCalculationService;
 use App\Services\Bookings\FlexibleBookingPolicy;
+use App\Services\Bookings\SameDayCutoffPolicy;
 use App\Services\Bookings\SlotComputationService;
 use App\Services\Commerce\CartItemInput;
 use App\Services\Promotions\AppliedPromotion;
@@ -72,6 +73,7 @@ class BookingController extends Controller
         private readonly SlotComputationService $slots,
         private readonly PromotionEvaluationService $promotions,
         private readonly FlexibleBookingPolicy $flexiblePolicy,
+        private readonly SameDayCutoffPolicy $cutoff,
     ) {}
 
     /**
@@ -111,6 +113,13 @@ class BookingController extends Controller
             ], 422);
         }
 
+        // Same-day cutoff: today is bookable only before the daily cutoff, and
+        // never a past date or a slot that is about to start. A flexible
+        // booking has no fixed start, so only its day is checked here.
+        if (! $this->cutoff->allows($scheduledDate->toDateString(), $flexible ? null : $requestedSlotStart)) {
+            return $this->cutoffRejection();
+        }
+
         // Evaluated once, before any technician-slot attempt — it depends
         // only on cart contents/zone, never on which technician/slot ends
         // up winning, so there's no reason to recompute it per candidate
@@ -145,7 +154,9 @@ class BookingController extends Controller
             $slotStarts = $requestedSlotStart === null ? [] : [$requestedSlotStart];
 
             if ($flexible) {
-                foreach ($this->slots->candidateSlotsForDate($zone, $scheduledDate, $durationMinutes, $requiresAlignment) as $slot) {
+                $candidateSlots = $this->slots->candidateSlotsForDate($zone, $scheduledDate, $durationMinutes, $requiresAlignment);
+
+                foreach ($this->cutoff->filterSlots($scheduledDate->toDateString(), $candidateSlots) as $slot) {
                     $slotStarts[] = $slot['start'];
                 }
 
@@ -325,6 +336,10 @@ class BookingController extends Controller
         $scheduledDate = CarbonImmutable::parse($request->validated('scheduled_date'))->startOfDay();
         $slotStart = $request->validated('slot_start');
 
+        if (! $this->cutoff->allows($scheduledDate->toDateString(), $slotStart)) {
+            return $this->cutoffRejection();
+        }
+
         $candidates = $this->slots->eligibleTechniciansForSlot(
             $zone, $scheduledDate, $slotStart, $durationMinutes, $requiresAlignment, excludeBookingId: $booking->id,
         );
@@ -419,6 +434,25 @@ class BookingController extends Controller
         $minutesNotice = $currentSlot->greaterThan($now) ? (int) $now->diffInMinutes($currentSlot) : 0;
 
         return $policy->feeFor(intdiv($minutesNotice, 60));
+    }
+
+    /**
+     * 422 for a date/time the same-day cutoff rules out. Carries the rule so
+     * the storefront can show the earliest date and the "call us" prompt.
+     */
+    private function cutoffRejection(): JsonResponse
+    {
+        $rules = $this->cutoff->rules();
+        $message = __('Same-day bookings must be made before :cutoff. The earliest available day is :date. Please call us for same-day help.', [
+            'cutoff' => CarbonImmutable::parse($rules['same_day_cutoff'])->format('g:ia'),
+            'date' => $rules['earliest_date'],
+        ]);
+
+        return response()->json([
+            'message' => $message,
+            'errors' => ['scheduled_date' => [$message]],
+            'booking_rules' => $rules,
+        ], 422);
     }
 
     private function lockKey(int $technicianId, CarbonImmutable $scheduledDate, string $slotStart): string

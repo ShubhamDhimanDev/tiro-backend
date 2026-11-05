@@ -9,6 +9,7 @@ use App\Models\ServiceZone;
 use App\Services\Bookings\BookingLineItemInput;
 use App\Services\Bookings\DurationCalculationService;
 use App\Services\Bookings\FlexibleBookingPolicy;
+use App\Services\Bookings\SameDayCutoffPolicy;
 use App\Services\Bookings\SlotComputationService;
 use Carbon\CarbonImmutable;
 use Illuminate\Http\JsonResponse;
@@ -25,6 +26,7 @@ class BookingSlotController extends Controller
         private readonly DurationCalculationService $duration,
         private readonly SlotComputationService $slots,
         private readonly FlexibleBookingPolicy $flexible,
+        private readonly SameDayCutoffPolicy $cutoff,
     ) {}
 
     public function index(BookingSlotsRequest $request): JsonResponse
@@ -47,7 +49,11 @@ class BookingSlotController extends Controller
         $anyFlexibleDay = false;
 
         for ($date = $dateFrom; $date->lte($dateTo); $date = $date->addDay()) {
-            $slots = $this->slots->candidateSlotsForDate($zone, $date, $durationMinutes, $requiresAlignment);
+            // Past days and a same-day request after the cutoff come back empty.
+            $slots = $this->cutoff->filterSlots(
+                $date->toDateString(),
+                $this->slots->candidateSlotsForDate($zone, $date, $durationMinutes, $requiresAlignment),
+            );
             $window = $this->slots->operatingWindowStrings($zone, $date);
             $dayFlexible = $flexibleOffered && $slots !== [] && $window !== null;
             $anyFlexibleDay = $anyFlexibleDay || $dayFlexible;
@@ -74,6 +80,7 @@ class BookingSlotController extends Controller
                     'discount_cents' => $flexibleOffered ? $this->flexible->discountCents() : 0,
                     'label' => $flexibleOffered ? $this->flexible->label() : null,
                 ],
+                'booking_rules' => $this->cutoff->rules(),
                 'days' => $days,
             ],
         ]);
