@@ -42,6 +42,7 @@ class PricingService
     public function __construct(
         private readonly PromotionEvaluationService $promotions,
         private readonly FlexibleBookingPolicy $flexiblePolicy,
+        private readonly SizePricingService $sizePricing,
     ) {}
 
     /**
@@ -70,6 +71,10 @@ class PricingService
 
         $evaluation = $this->promotions->evaluate($items, $serviceZoneId, $bookingId, $promoCode);
 
+        // Brand-agnostic size pricing: tyres in a priced rim band are priced
+        // together as one total for their quantity, not per SKU.
+        $sizeLines = $this->sizePricing->priceLines($items, $variantsById);
+
         $lines = [];
         $subtotal = 0;
         $discountTotal = 0;
@@ -80,7 +85,9 @@ class PricingService
             $variant = $variantsById->get($item->tyreVariantId)
                 ?? TyreVariant::query()->findOrFail($item->tyreVariantId);
 
-            $lineValue = $variant->base_price * $item->quantity;
+            $priced = $sizeLines[$lineIndex] ?? ['value' => $variant->base_price * $item->quantity, 'unit' => $variant->base_price];
+            $lineValue = $priced['value'];
+            $unitPrice = $priced['unit'];
             $promoDiscount = min($evaluation->discountForLine($lineIndex), $lineValue);
 
             $claimDiscount = 0;
@@ -106,12 +113,12 @@ class PricingService
             }
 
             $lineTotal = $lineValue - $discountAmount;
-            $taxAmount = (int) round($variant->base_price / self::GST_DIVISOR);
+            $taxAmount = (int) round($unitPrice / self::GST_DIVISOR);
 
             $lines[] = new PricingLine(
                 tyreVariantId: $item->tyreVariantId,
                 quantity: $item->quantity,
-                unitPrice: $variant->base_price,
+                unitPrice: $unitPrice,
                 promotionalPrice: null,
                 discountAmount: $discountAmount,
                 taxAmount: $taxAmount,

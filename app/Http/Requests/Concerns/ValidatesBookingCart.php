@@ -3,6 +3,7 @@
 namespace App\Http\Requests\Concerns;
 
 use App\Enums\VehicleFitmentPosition;
+use App\Services\Commerce\SizePricingService;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Validation\Rule;
 
@@ -22,9 +23,9 @@ trait ValidatesBookingCart
     protected function cartRules(): array
     {
         return [
-            'items' => ['sometimes', 'array'],
+            'items' => ['sometimes', 'array', SizePricingService::maxTyresRule()],
             'items.*.tyre_variant_id' => ['required', 'integer', 'exists:tyre_variants,id'],
-            'items.*.quantity' => ['required', 'integer', 'min:1', 'max:20'],
+            'items.*.quantity' => ['required', 'integer', 'min:1', 'max:'.SizePricingService::MAX_TYRES],
             'items.*.position' => ['required', Rule::enum(VehicleFitmentPosition::class)],
 
             // Only customer-selectable booking_addon keys — never

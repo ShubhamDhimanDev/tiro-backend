@@ -40,4 +40,24 @@ return [
         'discount_cents' => (int) env('BOOKINGS_FLEXIBLE_DISCOUNT_CENTS', 1000),
     ],
 
+    /*
+    |--------------------------------------------------------------------------
+    | Same-day cutoff
+    |--------------------------------------------------------------------------
+    |
+    | A fitting can be booked for today only if the booking is made before
+    | `cutoff` (24h "HH:MM", in `timezone`); after it the earliest bookable day
+    | is tomorrow and the storefront shows a "call us" prompt for same-day help.
+    | `min_lead_minutes` drops same-day slots that start too soon after "now".
+    | See App\Services\Bookings\SameDayCutoffPolicy.
+    |
+    */
+
+    'timezone' => env('BOOKINGS_TIMEZONE', 'Australia/Melbourne'),
+
+    'same_day' => [
+        'cutoff' => env('BOOKINGS_SAME_DAY_CUTOFF', '09:00'),
+        'min_lead_minutes' => (int) env('BOOKINGS_SAME_DAY_MIN_LEAD_MINUTES', 60),
+    ],
+
 ];

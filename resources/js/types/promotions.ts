@@ -118,6 +118,26 @@ export type PriceGuaranteeClaim = {
     updated_at: string;
 };
 
+/** One tyre-count price inside a {@link SizePriceBand}: the order total in whole cents. */
+export type SizePriceTier = {
+    id: number;
+    size_price_band_id: number;
+    quantity: number;
+    total_price: number;
+};
+
+/** A rim-diameter band priced by size alone (brand-agnostic). */
+export type SizePriceBand = {
+    id: number;
+    name: string;
+    rim_min: number;
+    rim_max: number;
+    status: Status;
+    tiers: SizePriceTier[];
+    created_at: string;
+    updated_at: string;
+};
+
 export type PriceRule = {
     id: number;
     service_zone_id: number;

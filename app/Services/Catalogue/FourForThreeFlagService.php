@@ -6,6 +6,7 @@ use App\Enums\PromotionType;
 use App\Enums\Status;
 use App\Models\Promotion;
 use App\Models\TyreVariant;
+use App\Services\Commerce\SizePricingService;
 use Illuminate\Support\Collection;
 
 /**
@@ -20,6 +21,8 @@ class FourForThreeFlagService
     /** @var Collection<int, Promotion>|null */
     private ?Collection $promotions = null;
 
+    public function __construct(private readonly SizePricingService $sizePricing) {}
+
     /**
      * @param  iterable<int, TyreVariant>  $variants  with `tyreModel` loaded
      * @return array<int, bool> keyed by variant id
@@ -30,6 +33,13 @@ class FourForThreeFlagService
         $flags = [];
 
         foreach ($variants as $variant) {
+            // Size-band pricing already bakes the 4th-tyre saving in, so those sizes never wear the sticker.
+            if ($this->sizePricing->bandForRim($variant->rim_diameter) !== null) {
+                $flags[$variant->id] = false;
+
+                continue;
+            }
+
             $flags[$variant->id] = $promotions->contains(fn (Promotion $promotion): bool => $promotion->eligibilities->contains(
                 fn ($eligibility): bool => $eligibility->matchesZone($zoneId) && $eligibility->matchesVariant($variant),
             ));

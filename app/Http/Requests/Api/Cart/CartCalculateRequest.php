@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests\Api\Cart;
 
+use App\Services\Commerce\SizePricingService;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
 
@@ -31,9 +32,9 @@ class CartCalculateRequest extends FormRequest
         return [
             'booking_id' => ['required_without:zone_id', 'prohibits:zone_id,items', 'integer', 'min:1'],
             'zone_id' => ['required_without:booking_id', 'prohibits:booking_id', 'integer', 'min:1'],
-            'items' => ['sometimes', 'array'],
+            'items' => ['sometimes', 'array', SizePricingService::maxTyresRule()],
             'items.*.tyre_variant_id' => ['required_with:items', 'integer', 'exists:tyre_variants,id'],
-            'items.*.quantity' => ['required_with:items', 'integer', 'min:1', 'max:20'],
+            'items.*.quantity' => ['required_with:items', 'integer', 'min:1', 'max:'.SizePricingService::MAX_TYRES],
             // Mode 1 only: mode 2 takes the code and flexible flag from the
             // booking itself (stored at hold time), so both are prohibited
             // alongside `booking_id`. A wrong/expired code is NOT a 422 — it

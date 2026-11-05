@@ -28,6 +28,7 @@ use App\Http\Controllers\Admin\Promotions\PriceGuaranteeClaimController;
 use App\Http\Controllers\Admin\Promotions\PriceRuleController;
 use App\Http\Controllers\Admin\Promotions\PromotionController;
 use App\Http\Controllers\Admin\Promotions\PromotionEligibilityController;
+use App\Http\Controllers\Admin\Promotions\SizePricingController;
 use App\Http\Controllers\Admin\Reporting\ReportingController;
 use App\Http\Controllers\Admin\Reviews\ReviewController;
 use App\Http\Controllers\Admin\UserController;
@@ -231,6 +232,7 @@ Route::middleware(['auth', 'verified'])
             Route::get('promotions', [PromotionController::class, 'index'])->name('promotions.index');
             Route::get('price-guarantee-claims', [PriceGuaranteeClaimController::class, 'index'])->name('price-guarantee-claims.index');
             Route::get('price-rules', [PriceRuleController::class, 'index'])->name('price-rules.index');
+            Route::get('size-pricing', [SizePricingController::class, 'index'])->name('size-pricing.index');
         });
 
         Route::middleware('permission:promotions.manage')->group(function () {
@@ -247,6 +249,10 @@ Route::middleware(['auth', 'verified'])
             Route::post('price-rules', [PriceRuleController::class, 'store'])->name('price-rules.store');
             Route::put('price-rules/{priceRule}', [PriceRuleController::class, 'update'])->name('price-rules.update');
             Route::delete('price-rules/{priceRule}', [PriceRuleController::class, 'destroy'])->name('price-rules.destroy');
+
+            Route::post('size-pricing', [SizePricingController::class, 'store'])->name('size-pricing.store');
+            Route::put('size-pricing/{sizePriceBand}', [SizePricingController::class, 'update'])->name('size-pricing.update');
+            Route::delete('size-pricing/{sizePriceBand}', [SizePricingController::class, 'destroy'])->name('size-pricing.destroy');
         });
 
         // Technician login provisioning — deliberately its own permission

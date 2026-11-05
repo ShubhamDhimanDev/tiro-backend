@@ -12,6 +12,7 @@ use App\Models\Suburb;
 use App\Services\Bookings\BookingLineItemInput;
 use App\Services\Bookings\DurationCalculationService;
 use App\Services\Bookings\FlexibleBookingPolicy;
+use App\Services\Bookings\SameDayCutoffPolicy;
 use App\Services\Bookings\SlotComputationService;
 use App\Services\Location\ServiceabilityResolver;
 use Carbon\CarbonImmutable;
@@ -40,6 +41,7 @@ class BookingAvailabilityController extends Controller
         private readonly DurationCalculationService $duration,
         private readonly SlotComputationService $slots,
         private readonly FlexibleBookingPolicy $flexible,
+        private readonly SameDayCutoffPolicy $cutoff,
     ) {}
 
     public function index(BookingAvailabilityRequest $request): JsonResponse
@@ -52,6 +54,7 @@ class BookingAvailabilityController extends Controller
                 'zone' => null,
                 'duration_minutes' => 0,
                 'flexible' => ['available' => false, 'discount_cents' => 0, 'label' => null],
+                'booking_rules' => $this->cutoff->rules(),
                 'days' => [],
             ]]);
         }
@@ -61,13 +64,13 @@ class BookingAvailabilityController extends Controller
 
         $from = CarbonImmutable::parse($request->validated('date_from'))->startOfDay();
         $to = CarbonImmutable::parse($request->validated('date_to'))->startOfDay();
-        $today = CarbonImmutable::today();
         $flexibleOffered = $this->flexible->isAvailable();
         $anyFlexibleDay = false;
         $days = [];
 
         for ($date = $from; $date->lte($to); $date = $date->addDay()) {
-            $slots = $date->lte($today) ? [] : $this->slots->candidateSlotsForDate($zone, $date, $durationMinutes, false);
+            // Past days, and today once the same-day cutoff has passed, have no slots.
+            $slots = $this->cutoff->filterSlots($date->toDateString(), $this->slots->candidateSlotsForDate($zone, $date, $durationMinutes, false));
             $window = $this->slots->operatingWindowStrings($zone, $date);
             $dayFlexible = $flexibleOffered && $slots !== [] && $window !== null;
             $anyFlexibleDay = $anyFlexibleDay || $dayFlexible;
@@ -93,6 +96,7 @@ class BookingAvailabilityController extends Controller
                 'discount_cents' => $flexibleOffered ? $this->flexible->discountCents() : 0,
                 'label' => $flexibleOffered ? $this->flexible->label() : null,
             ],
+            'booking_rules' => $this->cutoff->rules(),
             'days' => $days,
         ]]);
     }

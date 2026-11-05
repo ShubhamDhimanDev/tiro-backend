@@ -3,6 +3,7 @@ import type { PropsWithChildren } from 'react';
 import PriceGuaranteeClaimController from '@/actions/App/Http/Controllers/Admin/Promotions/PriceGuaranteeClaimController';
 import PriceRuleController from '@/actions/App/Http/Controllers/Admin/Promotions/PriceRuleController';
 import PromotionController from '@/actions/App/Http/Controllers/Admin/Promotions/PromotionController';
+import SizePricingController from '@/actions/App/Http/Controllers/Admin/Promotions/SizePricingController';
 import Heading from '@/components/heading';
 import { Button } from '@/components/ui/button';
 import { useCurrentUrl } from '@/hooks/use-current-url';
@@ -14,6 +15,7 @@ const tabs = [
         title: 'Price-guarantee claims',
         href: PriceGuaranteeClaimController.index().url,
     },
+    { title: 'Size pricing', href: SizePricingController.index().url },
     { title: 'Price rules', href: PriceRuleController.index().url },
 ];
 
@@ -40,7 +42,7 @@ export default function PromotionsLayout({ children }: PropsWithChildren) {
         <div className="space-y-6 p-4">
             <Heading
                 title="Promotions"
-                description="Campaign creation, eligibility, price-guarantee claim review, and per-zone service-fee rules."
+                description="Campaign creation, eligibility, price-guarantee claim review, size-based pricing, and per-zone service-fee rules."
             />
 
             <nav className="flex gap-1 border-b" aria-label="Promotions">
