@@ -30,6 +30,7 @@ class DatabaseSeeder extends Seeder
         // The real catalogue, imported from the client's WooCommerce export.
         // No demo brands or products: CatalogueSeeder is a test fixture only.
         $this->call(CatalogImportSeeder::class);
+        $this->call(SizePriceSeeder::class);
         $this->call(VehicleSeeder::class);
         $this->call(DurationRuleSeeder::class);
         $this->call(CancellationPolicySeeder::class);

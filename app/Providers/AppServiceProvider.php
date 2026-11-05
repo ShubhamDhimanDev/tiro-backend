@@ -14,6 +14,8 @@ use App\Models\Faq;
 use App\Models\PriceRule;
 use App\Models\Promotion;
 use App\Models\ServiceZone;
+use App\Models\SizePriceBand;
+use App\Models\SizePriceTier;
 use App\Models\State;
 use App\Models\TyreModel;
 use App\Models\TyreVariant;
@@ -24,6 +26,8 @@ use App\Observers\FaqObserver;
 use App\Observers\FrontendRevalidationObserver;
 use App\Observers\PriceRuleObserver;
 use App\Observers\PromotionObserver;
+use App\Observers\SizePriceObserver;
+use App\Observers\TyreVariantSizePriceObserver;
 use App\Services\Notifications\MessageMediaClient;
 use App\Services\Payments\PaymentGatewayResolver;
 use App\Services\Payments\PayPalPaymentGateway;
@@ -313,6 +317,9 @@ class AppServiceProvider extends ServiceProvider
     {
         Promotion::observe(PromotionObserver::class);
         PriceRule::observe(PriceRuleObserver::class);
+        SizePriceBand::observe(SizePriceObserver::class);
+        SizePriceTier::observe(SizePriceObserver::class);
+        TyreVariant::observe(TyreVariantSizePriceObserver::class);
         ContentPage::observe(ContentPageObserver::class);
         Faq::observe(FaqObserver::class);
 

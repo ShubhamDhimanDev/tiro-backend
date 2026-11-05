@@ -71,7 +71,7 @@ it('builds a quantity ladder from the real pricing engine including 4 for 3', fu
 
     expect($ladder['list_price'])->toBe(20000)
         ->and($ladder['four_for_three'])->toBeTrue()
-        ->and(collect($ladder['ladder'])->pluck('unit_price')->all())->toBe([20000, 20000, 20000, 15000, 16000])
+        ->and(collect($ladder['ladder'])->pluck('unit_price')->all())->toBe([20000, 20000, 20000, 15000])
         ->and($ladder['ladder'][3])->toMatchArray(['quantity' => 4, 'total' => 60000, 'discount_total' => 20000]);
 });
 

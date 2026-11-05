@@ -20,5 +20,7 @@ final class PromotionUnit
         public readonly int $lineIndex,
         public readonly int $tyreVariantId,
         public readonly int $unitPrice,
+        /** Priced by a size band (brand-agnostic bundle price), which already folds in any "4th tyre" saving. */
+        public readonly bool $bandPriced = false,
     ) {}
 }
