@@ -14,8 +14,7 @@ use Illuminate\Support\Facades\Cache;
  * Size-based fitting pricing. The tyre keeps its own `base_price`; on top of it
  * the customer pays a fitting charge set by the tyre's rim size and the number
  * of tyres in the order, taken from the rim band's tier (18-20": 170, 270, 370,
- * 370 for 1, 2, 3, 4 tyres; 16-17": 160, 260, 360, 460; a 5th tyre with no
- * tier of its own adds one more tyre's fitting). Fitting is never shown
+ * 370 for 1, 2, 3, 4 tyres; 16-17": 160, 260, 360, 460). Fitting is never shown
  * as its own price: it is folded into the line, so a tyre reads as one
  * GST-inclusive, fitted price. The fitting depends on size only, never on brand.
  *
@@ -29,7 +28,7 @@ use Illuminate\Support\Facades\Cache;
 class SizePricingService
 {
     /** The most tyres one order may hold (the largest tier an admin can price). */
-    public const MAX_TYRES = 5;
+    public const MAX_TYRES = 4;
 
     /**
      * SQL for a variant's catalogue price: its own `base_price` plus the 1-tyre
