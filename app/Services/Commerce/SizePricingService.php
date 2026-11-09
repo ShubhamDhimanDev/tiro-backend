@@ -7,7 +7,6 @@ use App\Models\SizePriceBand;
 use App\Models\TyreVariant;
 use App\Observers\SizePriceObserver;
 use Closure;
-use Illuminate\Database\Query\Expression;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Cache;
 
@@ -15,7 +14,8 @@ use Illuminate\Support\Facades\Cache;
  * Size-based fitting pricing. The tyre keeps its own `base_price`; on top of it
  * the customer pays a fitting charge set by the tyre's rim size and the number
  * of tyres in the order, taken from the rim band's tier (18-20": 170, 270, 370,
- * 370 for 1, 2, 3, 4 tyres; 16-17": 160, 260, 360, 460). Fitting is never shown
+ * 370 for 1, 2, 3, 4 tyres; 16-17": 160, 260, 360, 460; a 5th tyre with no
+ * tier of its own adds one more tyre's fitting). Fitting is never shown
  * as its own price: it is folded into the line, so a tyre reads as one
  * GST-inclusive, fitted price. The fitting depends on size only, never on brand.
  *
@@ -29,7 +29,17 @@ use Illuminate\Support\Facades\Cache;
 class SizePricingService
 {
     /** The most tyres one order may hold (the largest tier an admin can price). */
-    public const MAX_TYRES = 4;
+    public const MAX_TYRES = 5;
+
+    /**
+     * SQL for a variant's catalogue price: its own `base_price` plus the 1-tyre
+     * fitting of its rim band. This is the price the storefront shows, so price
+     * sort and filter must use it rather than the bare column. A fixed query (a
+     * subselect on the band tables), so it is always in step with the database.
+     * Wrap it as `new Expression(SizePricingService::DISPLAY_PRICE_SQL)` for
+     * `orderBy`/`where`.
+     */
+    public const DISPLAY_PRICE_SQL = "(tyre_variants.base_price + COALESCE((SELECT t.total_price FROM size_price_bands b JOIN size_price_tiers t ON t.size_price_band_id = b.id AND t.quantity = 1 WHERE b.status = 'active' AND tyre_variants.rim_diameter BETWEEN b.rim_min AND b.rim_max ORDER BY b.rim_min LIMIT 1), 0))";
 
     private const CACHE_KEY = 'size-pricing:active-bands';
 
@@ -108,25 +118,6 @@ class SizePricingService
     public function singleTyreFitting(int $rimDiameter): int
     {
         return $this->bandForRim($rimDiameter)['tiers'][1] ?? 0;
-    }
-
-    /**
-     * SQL for a variant's catalogue price: its own `base_price` plus the 1-tyre
-     * fitting of its rim band. This is the price the storefront shows, so price
-     * sort and filter must use it rather than the bare column. Built from
-     * integers only. An `Expression`, so it drops into `orderBy`/`where`/`select`.
-     */
-    public function displayPriceSql(string $variantTable = 'tyre_variants'): Expression
-    {
-        $cases = '';
-
-        foreach ($this->activeBands() as $band) {
-            $cases .= sprintf(' WHEN %1$s.rim_diameter BETWEEN %2$d AND %3$d THEN %4$d', $variantTable, $band['rim_min'], $band['rim_max'], $band['tiers'][1]);
-        }
-
-        return new Expression($cases === ''
-            ? "{$variantTable}.base_price"
-            : "({$variantTable}.base_price + CASE{$cases} ELSE 0 END)");
     }
 
     /**
