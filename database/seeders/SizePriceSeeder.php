@@ -9,9 +9,7 @@ use Illuminate\Database\Seeder;
 
 /**
  * The launch fitting prices: the total fitting charge (GST-inclusive) added to
- * the tyre price for 1, 2, 3 and 4 tyres, by rim size and never by brand. A 5th
- * tyre has no tier of its own, so it adds one more tyre's fitting until the
- * client gives a 5-tyre figure (set it in the admin panel).
+ * the tyre price for 1, 2, 3 and 4 tyres, by rim size and never by brand.
  *
  * 16-17" and 18-20" are the client's figures. 13-15" is the 16" fitting less
  * $10 per tier, a placeholder until the client confirms; edit it in the admin

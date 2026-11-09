@@ -16,7 +16,7 @@ use Inertia\Response;
 
 /**
  * CRUD for size-based fitting prices: rim-diameter bands, each with a fitting
- * total for 1..5 tyres (GST-inclusive), added to the tyre's own price and
+ * total for 1..4 tyres (GST-inclusive), added to the tyre's own price and
  * never shown as a separate line. Gated on
  * `promotions.manage` for writes, `promotions.view` for the page, like
  * `PriceRule`. `AuditLog` rows are written by {@see SizePriceObserver} — do

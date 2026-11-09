@@ -136,7 +136,7 @@ class TyreController extends Controller
     }
 
     /**
-     * Per-tyre price for 1 to 5 tyres, from the real pricing engine.
+     * Per-tyre price for 1 to 4 tyres, from the real pricing engine.
      */
     public function priceLadders(TyrePriceLaddersRequest $request): JsonResponse
     {

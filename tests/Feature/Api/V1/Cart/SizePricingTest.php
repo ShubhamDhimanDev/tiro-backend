@@ -97,17 +97,11 @@ it('ignores an inactive band', function () {
     priceCart([[sizedVariant(17, 20000), 2]])->assertOk()->assertJsonPath('data.grand_total', 40000);
 });
 
-it('accepts 5 tyres, charging a 5th tyre with no tier of its own one more tyre fitting', function () {
-    // 16-17": 4-tyre fitting 460 + 1-tyre fitting 160; 18-20": 370 + 170.
-    priceCart([[sizedVariant(17, 10000), 5]])->assertOk()->assertJsonPath('data.grand_total', 50000 + 46000 + 16000);
-    priceCart([[sizedVariant(19, 10000), 5]])->assertOk()->assertJsonPath('data.grand_total', 50000 + 37000 + 17000);
-});
-
-it('rejects more than 5 tyres in one order, however they are split across lines', function () {
+it('rejects more than 4 tyres in one order, however they are split across lines', function () {
     $variant = sizedVariant(17);
 
-    priceCart([[$variant, 6]])->assertUnprocessable();
-    priceCart([[$variant, 3], [sizedVariant(19), 3]])->assertUnprocessable()->assertJsonValidationErrors('items');
+    priceCart([[$variant, 5]])->assertUnprocessable();
+    priceCart([[$variant, 3], [sizedVariant(19), 2]])->assertUnprocessable()->assertJsonValidationErrors('items');
 });
 
 it('applies a percentage promotion to the tyre price only, not the fitting', function () {
@@ -133,14 +127,14 @@ it('still gives a 4-for-3 promotion its free tyre on a banded size', function ()
         ->and($response->json('data.grand_total'))->toBe(40000 + 46000 - 10000);
 });
 
-it('builds a 1-5 tyre price ladder that includes the fitting', function () {
+it('builds a 1-4 tyre price ladder that includes the fitting', function () {
     $variant = sizedVariant(17, 10000);
 
     $ladder = $this->getJson('/api/v1/tyres/price-ladders?ids='.$variant->id)->assertOk()->json('data.'.$variant->id);
 
     expect($ladder['list_price'])->toBe(26000)
-        ->and(collect($ladder['ladder'])->pluck('quantity')->all())->toBe([1, 2, 3, 4, 5])
-        ->and(collect($ladder['ladder'])->pluck('total')->all())->toBe([26000, 46000, 66000, 86000, 112000]);
+        ->and(collect($ladder['ladder'])->pluck('quantity')->all())->toBe([1, 2, 3, 4])
+        ->and(collect($ladder['ladder'])->pluck('total')->all())->toBe([26000, 46000, 66000, 86000]);
 });
 
 it('shows the fitted one-tyre price as the listing price', function () {
