@@ -9,7 +9,6 @@ use App\Models\Promotion;
 use App\Models\PromotionRedemption;
 use App\Models\TyreVariant;
 use App\Services\Commerce\CartItemInput;
-use App\Services\Commerce\SizePricingService;
 use Illuminate\Database\Eloquent\Collection as EloquentCollection;
 use Illuminate\Support\Collection;
 
@@ -64,8 +63,6 @@ use Illuminate\Support\Collection;
 class PromotionEvaluationService
 {
     private const GROUP_SIZE = 4;
-
-    public function __construct(private readonly SizePricingService $sizePricing) {}
 
     /** Structured `promo_error.code` values — part of the public contract. */
     public const CODE_INVALID = 'promo_code_invalid';
@@ -123,12 +120,6 @@ class PromotionEvaluationService
 
         foreach ($activePromotions as $promotion) {
             $matchedUnitIndices = $this->matchedUnitIndices($promotion, $units, $variantsById, $serviceZoneId);
-
-            // The size-band price already includes the "4th tyre" saving, so a
-            // 4-for-3 promotion never discounts band-priced tyres a second time.
-            if ($promotion->type === PromotionType::FourForThree) {
-                $matchedUnitIndices = array_values(array_filter($matchedUnitIndices, fn (int $index): bool => ! $units[$index]->bandPriced));
-            }
 
             if ($matchedUnitIndices === []) {
                 continue;
@@ -258,10 +249,6 @@ class PromotionEvaluationService
     {
         $units = [];
 
-        // Effective (size-band) prices, so a percentage/fixed promotion
-        // discounts what the customer is actually charged.
-        $sizeLines = $this->sizePricing->priceLines($items, $variantsById);
-
         foreach ($items->values() as $lineIndex => $item) {
             $variant = $variantsById->get($item->tyreVariantId);
 
@@ -269,11 +256,8 @@ class PromotionEvaluationService
                 continue;
             }
 
-            $unitPrice = $sizeLines[$lineIndex]['unit'] ?? $variant->base_price;
-            $bandPriced = $sizeLines[$lineIndex]['banded'] ?? false;
-
             for ($i = 0; $i < $item->quantity; $i++) {
-                $units[] = new PromotionUnit($lineIndex, $item->tyreVariantId, $unitPrice, $bandPriced);
+                $units[] = new PromotionUnit($lineIndex, $item->tyreVariantId, $variant->base_price);
             }
         }
 

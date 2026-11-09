@@ -39,7 +39,7 @@ class TyrePriceLadderBuilder
 
         return [
             'tyre_variant_id' => $variant->id,
-            'list_price' => $variant->base_price,
+            'list_price' => $variant->displayPrice(),
             'four_for_three' => $fourForThree,
             'currency' => 'AUD',
             'ladder' => $ladder,

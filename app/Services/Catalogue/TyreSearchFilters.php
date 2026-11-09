@@ -3,6 +3,7 @@
 namespace App\Services\Catalogue;
 
 use App\Models\TyreVariant;
+use App\Services\Commerce\SizePricingService;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\DB;
 
@@ -19,6 +20,8 @@ class TyreSearchFilters
 {
     /** Low to high; `ZR` sits above `Y` by convention. */
     public const SPEED_ORDER = ['N', 'P', 'Q', 'R', 'S', 'T', 'U', 'H', 'V', 'W', 'Y', 'ZR'];
+
+    public function __construct(private readonly SizePricingService $sizePricing) {}
 
     /**
      * @param  Builder<TyreVariant>  $query
@@ -64,11 +67,11 @@ class TyreSearchFilters
         }
 
         if (isset($filters['price_min']) && $filters['price_min'] !== '') {
-            $query->where('tyre_variants.base_price', '>=', (int) $filters['price_min'] * 100);
+            $query->where($this->sizePricing->displayPriceSql(), '>=', (int) $filters['price_min'] * 100);
         }
 
         if (isset($filters['price_max']) && $filters['price_max'] !== '') {
-            $query->where('tyre_variants.base_price', '<=', (int) $filters['price_max'] * 100);
+            $query->where($this->sizePricing->displayPriceSql(), '<=', (int) $filters['price_max'] * 100);
         }
 
         if (isset($filters['car_make']) && $filters['car_make'] !== '') {

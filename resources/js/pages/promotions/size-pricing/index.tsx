@@ -128,18 +128,19 @@ function BandFormDialog({
                     variant={isEdit ? 'outline' : 'default'}
                     size={isEdit ? 'sm' : 'default'}
                 >
-                    {isEdit ? 'Edit' : 'New size band'}
+                    {isEdit ? 'Edit' : 'New fitting band'}
                 </Button>
             </DialogTrigger>
             <DialogContent className="sm:max-w-lg">
                 <DialogHeader>
                     <DialogTitle>
-                        {isEdit ? 'Edit size band' : 'New size band'}
+                        {isEdit ? 'Edit fitting band' : 'New fitting band'}
                     </DialogTitle>
                     <DialogDescription>
-                        One price for every tyre in these rim sizes, whatever
-                        the brand. Prices are the total for the order,
-                        GST-inclusive and fitting included.
+                        The fitting charge for these rim sizes, whatever the
+                        brand. It is added to the tyre's own price (customers
+                        see one combined price) and is the total for the order,
+                        GST-inclusive.
                     </DialogDescription>
                 </DialogHeader>
 
@@ -190,7 +191,7 @@ function BandFormDialog({
 
                     <fieldset className="grid gap-2">
                         <legend className="mb-1 text-sm font-medium">
-                            Total price ($)
+                            Total fitting ($)
                         </legend>
                         <div className="grid grid-cols-2 gap-4">
                             {form.data.prices.map((price, index) => (
@@ -257,7 +258,7 @@ function DeleteBandButton({ band }: { band: SizePriceBand }) {
     const destroy = () => {
         if (
             !confirm(
-                `Delete the "${band.name}" band? Tyres in these sizes go back to their own listed price.`,
+                `Delete the "${band.name}" band? Tyres in these sizes will have no fitting charge.`,
             )
         ) {
             return;
@@ -288,7 +289,7 @@ export default function SizePricingIndex({
 
     return (
         <>
-            <Head title="Size pricing" />
+            <Head title="Fitting pricing" />
 
             <div className="flex justify-end">
                 <Can permission="promotions.manage">
@@ -298,14 +299,14 @@ export default function SizePricingIndex({
 
             <Card>
                 <CardHeader>
-                    <CardTitle>Size pricing</CardTitle>
+                    <CardTitle>Fitting pricing</CardTitle>
                     <CardDescription>
-                        Brand-agnostic prices set by rim size alone. The price
-                        is the total for the order (GST-inclusive, fitting
-                        included) and steps with the number of tyres; a mixed
-                        order is priced per band. An order holds at most{' '}
-                        {maxTyres} tyres. Saving a band updates the listed
-                        price of every tyre in its sizes.
+                        Fitting charge by rim size, never by brand. It is
+                        added to each tyre's own price and shown to customers
+                        as one combined price. The amount is the order total
+                        (GST-inclusive) and steps with the number of tyres; a
+                        mixed order is charged per band. An order holds at
+                        most {maxTyres} tyres.
                     </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
@@ -316,14 +317,13 @@ export default function SizePricingIndex({
                         >
                             No active band covers{' '}
                             {unpricedRims.map((rim) => `${rim}"`).join(', ')}.
-                            Tyres in those sizes keep their own listed price and
-                            get no quantity pricing.
+                            Tyres in those sizes have no fitting charge added.
                         </p>
                     )}
 
                     {bands.length === 0 ? (
                         <p className="text-muted-foreground text-sm">
-                            No size bands yet.
+                            No fitting bands yet.
                         </p>
                     ) : (
                         <table className="w-full text-sm">
@@ -409,6 +409,6 @@ export default function SizePricingIndex({
 SizePricingIndex.layout = {
     breadcrumbs: [
         { title: 'Promotions', href: PromotionController.index().url },
-        { title: 'Size pricing', href: SizePricingController.index().url },
+        { title: 'Fitting pricing', href: SizePricingController.index().url },
     ] satisfies BreadcrumbItem[],
 };

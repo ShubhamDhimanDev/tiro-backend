@@ -15,7 +15,7 @@ const tabs = [
         title: 'Price-guarantee claims',
         href: PriceGuaranteeClaimController.index().url,
     },
-    { title: 'Size pricing', href: SizePricingController.index().url },
+    { title: 'Fitting pricing', href: SizePricingController.index().url },
     { title: 'Price rules', href: PriceRuleController.index().url },
 ];
 
@@ -42,7 +42,7 @@ export default function PromotionsLayout({ children }: PropsWithChildren) {
         <div className="space-y-6 p-4">
             <Heading
                 title="Promotions"
-                description="Campaign creation, eligibility, price-guarantee claim review, size-based pricing, and per-zone service-fee rules."
+                description="Campaign creation, eligibility, price-guarantee claim review, size-based fitting prices, and per-zone service-fee rules."
             />
 
             <nav className="flex gap-1 border-b" aria-label="Promotions">

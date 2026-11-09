@@ -15,19 +15,15 @@ use Inertia\Inertia;
 use Inertia\Response;
 
 /**
- * CRUD for brand-agnostic size pricing: rim-diameter bands, each with a total
- * price for 1..4 tyres (GST-inclusive, fitting included). Gated on
+ * CRUD for size-based fitting prices: rim-diameter bands, each with a fitting
+ * total for 1..4 tyres (GST-inclusive), added to the tyre's own price and
+ * never shown as a separate line. Gated on
  * `promotions.manage` for writes, `promotions.view` for the page, like
  * `PriceRule`. `AuditLog` rows are written by {@see SizePriceObserver} — do
  * not add explicit ones here.
- *
- * Every save re-syncs `tyre_variants.base_price` to the band's 1-tyre price
- * (see {@see SizePricingService::syncVariantPrices()}) so listings agree.
  */
 class SizePricingController extends Controller
 {
-    public function __construct(private readonly SizePricingService $sizePricing) {}
-
     public function index(): Response
     {
         $bands = SizePriceBand::query()
@@ -37,7 +33,7 @@ class SizePricingController extends Controller
 
         $activeBands = $bands->where('status', Status::Active);
 
-        // Rim sizes the catalogue stocks that no active band prices (they keep their own `base_price`).
+        // Rim sizes the catalogue stocks that no active band covers (they get no fitting charge).
         $unpricedRims = TyreVariant::query()
             ->distinct()
             ->orderBy('rim_diameter')
@@ -56,7 +52,7 @@ class SizePricingController extends Controller
     {
         $this->save(new SizePriceBand, $request);
 
-        Inertia::flash('toast', ['type' => 'success', 'message' => __('Size price band created.')]);
+        Inertia::flash('toast', ['type' => 'success', 'message' => __('Fitting band created.')]);
 
         return back();
     }
@@ -65,7 +61,7 @@ class SizePricingController extends Controller
     {
         $this->save($sizePriceBand, $request);
 
-        Inertia::flash('toast', ['type' => 'success', 'message' => __('Size price band updated.')]);
+        Inertia::flash('toast', ['type' => 'success', 'message' => __('Fitting band updated.')]);
 
         return back();
     }
@@ -80,7 +76,7 @@ class SizePricingController extends Controller
 
         SizePricingService::flush();
 
-        Inertia::flash('toast', ['type' => 'success', 'message' => __('Size price band deleted.')]);
+        Inertia::flash('toast', ['type' => 'success', 'message' => __('Fitting band deleted.')]);
 
         return back();
     }
@@ -105,8 +101,7 @@ class SizePricingController extends Controller
             $band->tiers()->whereNotIn('quantity', $quantities)->get()->each->delete();
         });
 
-        // Flush again now the transaction has committed, then make listings follow the new prices.
+        // Flush again now the transaction has committed.
         SizePricingService::flush();
-        $this->sizePricing->syncVariantPrices();
     }
 }

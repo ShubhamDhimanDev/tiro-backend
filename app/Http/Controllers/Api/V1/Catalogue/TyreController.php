@@ -20,6 +20,7 @@ use App\Services\Catalogue\TyreFacetsBuilder;
 use App\Services\Catalogue\TyrePriceLadderBuilder;
 use App\Services\Catalogue\TyreSearchFilters;
 use App\Services\Catalogue\ZoneStockCalculator;
+use App\Services\Commerce\SizePricingService;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
@@ -44,6 +45,7 @@ class TyreController extends Controller
         private readonly FourForThreeFlagService $fourForThreeFlags,
         private readonly TyreFacetsBuilder $facetsBuilder,
         private readonly TyrePriceLadderBuilder $ladderBuilder,
+        private readonly SizePricingService $sizePricing,
     ) {}
 
     public function index(TyreIndexRequest $request): JsonResponse
@@ -193,7 +195,7 @@ class TyreController extends Controller
 
         return response()->json([
             'data' => [
-                'unit_price' => $variant->base_price,
+                'unit_price' => $variant->displayPrice(),
                 'promotional_price' => null,
                 'currency' => 'AUD',
                 'stock_status' => $stockStatus->value,
@@ -249,8 +251,8 @@ class TyreController extends Controller
     private function applySort(Builder $query, string $sort): Builder
     {
         return match ($sort) {
-            'price_asc' => $query->orderBy('tyre_variants.base_price'),
-            'price_desc' => $query->orderByDesc('tyre_variants.base_price'),
+            'price_asc' => $query->orderBy($this->sizePricing->displayPriceSql()),
+            'price_desc' => $query->orderByDesc($this->sizePricing->displayPriceSql()),
             'name_asc' => $query->orderBy('tyre_models.name')->orderBy('tyre_variants.width'),
             default => $query
                 ->orderByRaw('COALESCE(tyre_models.released_at, tyre_models.created_at) DESC')

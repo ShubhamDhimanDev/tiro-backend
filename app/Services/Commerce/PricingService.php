@@ -71,8 +71,8 @@ class PricingService
 
         $evaluation = $this->promotions->evaluate($items, $serviceZoneId, $bookingId, $promoCode);
 
-        // Brand-agnostic size pricing: tyres in a priced rim band are priced
-        // together as one total for their quantity, not per SKU.
+        // Fitting is added by rim band and tyre count and folded into each line
+        // (the customer sees one fitted price, not a separate fitting charge).
         $sizeLines = $this->sizePricing->priceLines($items, $variantsById);
 
         $lines = [];

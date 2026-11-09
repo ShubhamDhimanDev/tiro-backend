@@ -3,6 +3,7 @@
 namespace App\Services\Catalogue;
 
 use App\Models\TyreVariant;
+use App\Services\Commerce\SizePricingService;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
@@ -16,6 +17,8 @@ use Illuminate\Support\Facades\DB;
 class TyreFacetsBuilder
 {
     private const TIER_ORDER = ['premium', 'mid', 'budget'];
+
+    public function __construct(private readonly SizePricingService $sizePricing) {}
 
     /**
      * @param  Builder<TyreVariant>  $query
@@ -39,6 +42,9 @@ class TyreFacetsBuilder
             ];
         }
 
+        // The price shown to customers: tyre price plus the one-tyre fitting for its rim size.
+        $displayPrices = $rows->map(fn (object $row): int => (int) $row->base_price + $this->sizePricing->singleTyreFitting((int) $row->rim_diameter));
+
         $loads = $rows->map(fn (object $row): int => (int) $row->load_index)->filter();
 
         return [
@@ -56,7 +62,7 @@ class TyreFacetsBuilder
                 ->map(fn (string $tier): array => ['value' => $tier, 'count' => $rows->where('brand_tier', $tier)->count()])
                 ->filter(fn (array $tier): bool => $tier['count'] > 0)->values()->all(),
             'run_flat' => ['yes' => $rows->where('run_flat', 1)->count(), 'no' => $rows->where('run_flat', 0)->count()],
-            'price' => ['min' => (int) $rows->min('base_price'), 'max' => (int) $rows->max('base_price')],
+            'price' => ['min' => (int) $displayPrices->min(), 'max' => (int) $displayPrices->max()],
             'load_index' => $loads->isEmpty() ? null : ['min' => $loads->min(), 'max' => $loads->max()],
             'speed_ratings' => $rows->pluck('speed_rating')->unique()
                 ->sortBy(fn (string $rating): int|false => array_search($rating, TyreSearchFilters::SPEED_ORDER, true))->values()->all(),

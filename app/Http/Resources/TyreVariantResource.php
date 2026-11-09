@@ -42,14 +42,15 @@ class TyreVariantResource extends JsonResource
             // `tyre_model.tier` so a card needs no nested lookup.
             'tier' => $this->whenLoaded('tyreModel', fn () => $this->tyreModel->brand?->tier?->value),
             // Phase 7: catalogue price per tyre in cents (GST-inclusive, before
-            // promotions). Zone-independent today, so safe to show without a
-            // location; `unit_price` below is still zone-gated.
-            'list_price' => $this->base_price,
+            // promotions), fitting for one tyre included. Zone-independent
+            // today, so safe to show without a location; `unit_price` below
+            // is still zone-gated.
+            'list_price' => $this->displayPrice(),
             'run_flat' => $this->whenLoaded('tyreModel', fn () => (bool) $this->tyreModel->run_flat),
             'pattern' => $this->whenLoaded('tyreModel', fn () => $this->tyreModel->slug),
             'four_for_three' => (bool) ($this->resource->getAttribute('four_for_three') ?? false),
             'tyre_model' => new TyreModelSummaryResource($this->whenLoaded('tyreModel')),
-            'unit_price' => $this->when($zoneResolved, fn () => $this->base_price),
+            'unit_price' => $this->when($zoneResolved, fn () => $this->displayPrice()),
             'promotional_price' => $this->when($zoneResolved, fn () => null),
             'currency' => $this->when($zoneResolved, fn () => 'AUD'),
             'stock_status' => $this->when($zoneResolved, fn () => $this->resource->stock_status),

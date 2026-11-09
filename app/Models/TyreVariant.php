@@ -6,6 +6,7 @@ use App\Contracts\RevalidatesFrontend;
 use App\Enums\Status;
 use App\Enums\TyreSidewall;
 use App\Services\Catalogue\ZoneStockCalculator;
+use App\Services\Commerce\SizePricingService;
 use Database\Factories\TyreVariantFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -168,6 +169,17 @@ class TyreVariant extends Model implements RevalidatesFrontend
             'updated' => $this->wasChanged(self::ISR_RELEVANT_FIELDS) ? ["content:tyre:{$this->slug}"] : [],
             'deleted' => ["content:tyre:{$this->slug}"],
         };
+    }
+
+    /**
+     * The per-tyre price the storefront shows (cents, GST-inclusive): the
+     * tyre's own `base_price` plus the fitting for one tyre of its rim size.
+     * The fitting is folded in, never shown as its own price. Sort and filter
+     * use the SQL twin, {@see SizePricingService::displayPriceSql()}.
+     */
+    public function displayPrice(): int
+    {
+        return $this->base_price + app(SizePricingService::class)->singleTyreFitting($this->rim_diameter);
     }
 
     /**
