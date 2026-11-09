@@ -9,27 +9,37 @@ use App\Observers\SizePriceObserver;
 use Closure;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Cache;
-use Illuminate\Support\Facades\DB;
 
 /**
- * Brand-agnostic, size-only pricing. A tyre whose rim diameter falls inside an
- * active {@see SizePriceBand} is priced by the band, not by its own
- * `base_price`: the order's tyres in that band are priced together as ONE
- * total taken from the band's tier for that quantity (1 tyre = $160, 2 =
- * $260, 3 = $360, 4 = $360…). Prices are GST-inclusive and include fitting.
+ * Size-based fitting pricing. The tyre keeps its own `base_price`; on top of it
+ * the customer pays a fitting charge set by the tyre's rim size and the number
+ * of tyres in the order, taken from the rim band's tier (18-20": 170, 270, 370,
+ * 370 for 1, 2, 3, 4 tyres; 16-17": 160, 260, 360, 460; a 5th tyre with no
+ * tier of its own adds one more tyre's fitting). Fitting is never shown
+ * as its own price: it is folded into the line, so a tyre reads as one
+ * GST-inclusive, fitted price. The fitting depends on size only, never on brand.
  *
- * Tyres in different bands are priced per band (2 x 17" + 2 x 19" = the
- * 2-tyre total of each band added together). A tyre outside every band keeps
- * pricing at `base_price x quantity`, so a size nobody has priced yet still
- * works.
+ * Tyres in the same band share one fitting total for their combined quantity;
+ * different bands add up separately. A tyre outside every band has no fitting
+ * charge.
  *
- * Bands are cached forever and flushed by {@see SizePriceObserver},
- * so pricing a cart costs no band queries.
+ * Bands are cached forever and flushed by {@see SizePriceObserver}, so pricing
+ * a cart costs no band queries.
  */
 class SizePricingService
 {
     /** The most tyres one order may hold (the largest tier an admin can price). */
-    public const MAX_TYRES = 4;
+    public const MAX_TYRES = 5;
+
+    /**
+     * SQL for a variant's catalogue price: its own `base_price` plus the 1-tyre
+     * fitting of its rim band. This is the price the storefront shows, so price
+     * sort and filter must use it rather than the bare column. A fixed query (a
+     * subselect on the band tables), so it is always in step with the database.
+     * Wrap it as `new Expression(SizePricingService::DISPLAY_PRICE_SQL)` for
+     * `orderBy`/`where`.
+     */
+    public const DISPLAY_PRICE_SQL = "(tyre_variants.base_price + COALESCE((SELECT t.total_price FROM size_price_bands b JOIN size_price_tiers t ON t.size_price_band_id = b.id AND t.quantity = 1 WHERE b.status = 'active' AND tyre_variants.rim_diameter BETWEEN b.rim_min AND b.rim_max ORDER BY b.rim_min LIMIT 1), 0))";
 
     private const CACHE_KEY = 'size-pricing:active-bands';
 
@@ -58,7 +68,7 @@ class SizePricingService
 
     /**
      * Active bands that have a 1-tyre price, as plain arrays (cache-safe).
-     * `tiers` maps quantity => total price (cents).
+     * `tiers` maps quantity => fitting total for that many tyres (cents).
      *
      * @return list<array{id: int, rim_min: int, rim_max: int, tiers: array<int, int>}>
      */
@@ -104,20 +114,20 @@ class SizePricingService
         return null;
     }
 
-    /** The 1-tyre price (cents) for a rim diameter, or null when no band covers it. */
-    public function singleTyrePrice(int $rimDiameter): ?int
+    /** The fitting charge (cents) for one tyre of this rim diameter; 0 when no band covers it. */
+    public function singleTyreFitting(int $rimDiameter): int
     {
-        return $this->bandForRim($rimDiameter)['tiers'][1] ?? null;
+        return $this->bandForRim($rimDiameter)['tiers'][1] ?? 0;
     }
 
     /**
-     * Total (cents) for `$quantity` tyres in a band. Beyond the largest tier
-     * (only reachable by a caller that skipped the {@see self::MAX_TYRES}
-     * validation) each extra tyre is charged at the 1-tyre price, never free.
+     * Fitting total (cents) for `$quantity` tyres in a band. Beyond the largest
+     * tier (only reachable by a caller that skipped the {@see self::MAX_TYRES}
+     * validation) each extra tyre is charged the 1-tyre fitting, never free.
      *
      * @param  array{tiers: array<int, int>}  $band
      */
-    public function totalFor(array $band, int $quantity): int
+    public function fittingFor(array $band, int $quantity): int
     {
         $tiers = $band['tiers'];
         $largest = max(1, ...array_keys($tiers));
@@ -131,22 +141,22 @@ class SizePricingService
 
     /**
      * Price every cart line. Keyed by line index (the position in `$items`):
-     * `value` is the line's exact total (cents), `unit` its per-tyre average
-     * (rounded, for display and promotions), `banded` whether a size band
-     * priced it.
+     * `value` is the line's exact total (cents) = tyre price x quantity plus
+     * its share of the fitting, `unit` that total per tyre (rounded, for
+     * display), `fitting` the fitting share alone.
      *
-     * A band's total is shared out across that band's lines in proportion to
-     * quantity, with the rounding remainder on the last line, so the lines add
-     * up to the band total to the cent.
+     * A band's fitting total is shared across that band's lines in proportion
+     * to quantity, with the rounding remainder on the last line, so the lines
+     * add up to the exact fitting total.
      *
      * @param  Collection<int, CartItemInput>  $items
      * @param  Collection<int, TyreVariant>  $variantsById
-     * @return array<int, array{value: int, unit: int, banded: bool}>
+     * @return array<int, array{value: int, unit: int, fitting: int}>
      */
     public function priceLines(Collection $items, Collection $variantsById): array
     {
         $items = $items->values();
-        $lines = [];
+        $fittings = [];
         /** @var array<int, array{band: array{id: int, rim_min: int, rim_max: int, tiers: array<int, int>}, lines: list<int>, quantity: int}> $groups */
         $groups = [];
 
@@ -157,11 +167,10 @@ class SizePricingService
                 continue;
             }
 
+            $fittings[$index] = 0;
             $band = $this->bandForRim($variant->rim_diameter);
 
             if ($band === null) {
-                $lines[$index] = ['value' => $variant->base_price * $item->quantity, 'unit' => $variant->base_price, 'banded' => false];
-
                 continue;
             }
 
@@ -171,42 +180,31 @@ class SizePricingService
         }
 
         foreach ($groups as $group) {
-            $total = $this->totalFor($group['band'], $group['quantity']);
+            $total = $this->fittingFor($group['band'], $group['quantity']);
             $allocated = 0;
             $lastPosition = array_key_last($group['lines']);
 
             foreach ($group['lines'] as $position => $index) {
-                $quantity = $items[$index]->quantity;
-                $value = $position === $lastPosition
+                $share = $position === $lastPosition
                     ? $total - $allocated
-                    : intdiv($total * $quantity, $group['quantity']);
+                    : intdiv($total * $items[$index]->quantity, $group['quantity']);
 
-                $allocated += $value;
-                $lines[$index] = ['value' => $value, 'unit' => (int) round($value / max(1, $quantity)), 'banded' => true];
+                $allocated += $share;
+                $fittings[$index] = $share;
             }
+        }
+
+        $lines = [];
+
+        foreach ($fittings as $index => $fitting) {
+            $quantity = $items[$index]->quantity;
+            $value = $variantsById->get($items[$index]->tyreVariantId)->base_price * $quantity + $fitting;
+
+            $lines[$index] = ['value' => $value, 'unit' => (int) round($value / max(1, $quantity)), 'fitting' => $fitting];
         }
 
         ksort($lines);
 
         return $lines;
-    }
-
-    /**
-     * Make every variant's `base_price` the 1-tyre price of its band, so the
-     * listing, "from $" and price sort/filter — which all read `base_price` —
-     * agree with the band price. Returns the number of variants updated.
-     */
-    public function syncVariantPrices(): int
-    {
-        $updated = 0;
-
-        foreach ($this->activeBands() as $band) {
-            $updated += DB::table('tyre_variants')
-                ->whereBetween('rim_diameter', [$band['rim_min'], $band['rim_max']])
-                ->where('base_price', '!=', $band['tiers'][1])
-                ->update(['base_price' => $band['tiers'][1]]);
-        }
-
-        return $updated;
     }
 }

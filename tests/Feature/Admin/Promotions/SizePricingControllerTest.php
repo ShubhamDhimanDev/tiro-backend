@@ -40,7 +40,7 @@ function bandPayload(array $overrides = []): array
             ['quantity' => 1, 'total_price' => 16000],
             ['quantity' => 2, 'total_price' => 26000],
             ['quantity' => 3, 'total_price' => 36000],
-            ['quantity' => 4, 'total_price' => 36000],
+            ['quantity' => 4, 'total_price' => 46000],
         ],
     ], $overrides);
 }
@@ -51,19 +51,9 @@ test('a promotions.manage user can create a band with its tiers, audit-logged', 
         ->assertRedirect();
 
     $band = SizePriceBand::query()->firstOrFail();
-    expect($band->tiers->pluck('total_price', 'quantity')->all())->toBe([1 => 16000, 2 => 26000, 3 => 36000, 4 => 36000])
+    expect($band->tiers->pluck('total_price', 'quantity')->all())->toBe([1 => 16000, 2 => 26000, 3 => 36000, 4 => 46000])
         ->and(AuditLog::query()->where('action', 'size_price_bands.created')->count())->toBe(1)
         ->and(AuditLog::query()->where('action', 'size_price_tiers.created')->count())->toBe(4);
-});
-
-test('saving a band re-prices the variants in its rim range and no others', function () {
-    $in = TyreVariant::factory()->create(['rim_diameter' => 17, 'base_price' => 99900]);
-    $out = TyreVariant::factory()->create(['rim_diameter' => 21, 'base_price' => 55500]);
-
-    $this->actingAs(sizePricingUser('ecommerce'))->post(route('admin.size-pricing.store'), bandPayload())->assertRedirect();
-
-    expect($in->fresh()->base_price)->toBe(16000)
-        ->and($out->fresh()->base_price)->toBe(55500);
 });
 
 test('updating a band changes its tiers and drops removed ones', function () {
@@ -108,7 +98,7 @@ test('rejects skipped tyre counts and a bigger order costing less', function () 
     ]))->assertSessionHasErrors('tiers');
 
     $this->actingAs($admin)->post(route('admin.size-pricing.store'), bandPayload([
-        'tiers' => array_map(fn (int $q): array => ['quantity' => $q, 'total_price' => 10000 * $q], [1, 2, 3, 4, 5]),
+        'tiers' => array_map(fn (int $q): array => ['quantity' => $q, 'total_price' => 10000 * $q], [1, 2, 3, 4, 5, 6]),
     ]))->assertSessionHasErrors('tiers');
 
     expect(SizePriceBand::query()->count())->toBe(0);
@@ -134,5 +124,5 @@ test('the page lists bands and the rim sizes no active band prices', function ()
             ->component('promotions/size-pricing/index')
             ->has('bands', 1)
             ->where('unpricedRims', [22])
-            ->where('maxTyres', 4));
+            ->where('maxTyres', 5));
 });

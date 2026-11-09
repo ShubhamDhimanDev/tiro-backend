@@ -7,14 +7,14 @@ use App\Services\Commerce\CartItemInput;
 use App\Services\Commerce\PricingService;
 
 /**
- * The per-tyre price for buying 1 to 4 of a tyre, taken from the real
+ * The per-tyre price for buying 1 to 5 of a tyre, taken from the real
  * {@see PricingService} (auto-applied promotions included; promo codes,
  * flexible discount and service fee excluded) so the storefront table can
  * never disagree with `POST /api/v1/cart/calculate`.
  */
 class TyrePriceLadderBuilder
 {
-    public const QUANTITIES = [1, 2, 3, 4];
+    public const QUANTITIES = [1, 2, 3, 4, 5];
 
     public function __construct(private readonly PricingService $pricing) {}
 
@@ -39,7 +39,7 @@ class TyrePriceLadderBuilder
 
         return [
             'tyre_variant_id' => $variant->id,
-            'list_price' => $variant->base_price,
+            'list_price' => $variant->displayPrice(),
             'four_for_three' => $fourForThree,
             'currency' => 'AUD',
             'ladder' => $ladder,

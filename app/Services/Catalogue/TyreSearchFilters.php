@@ -3,7 +3,9 @@
 namespace App\Services\Catalogue;
 
 use App\Models\TyreVariant;
+use App\Services\Commerce\SizePricingService;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Query\Expression;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -64,11 +66,11 @@ class TyreSearchFilters
         }
 
         if (isset($filters['price_min']) && $filters['price_min'] !== '') {
-            $query->where('tyre_variants.base_price', '>=', (int) $filters['price_min'] * 100);
+            $query->where(new Expression(SizePricingService::DISPLAY_PRICE_SQL), '>=', (int) $filters['price_min'] * 100);
         }
 
         if (isset($filters['price_max']) && $filters['price_max'] !== '') {
-            $query->where('tyre_variants.base_price', '<=', (int) $filters['price_max'] * 100);
+            $query->where(new Expression(SizePricingService::DISPLAY_PRICE_SQL), '<=', (int) $filters['price_max'] * 100);
         }
 
         if (isset($filters['car_make']) && $filters['car_make'] !== '') {
