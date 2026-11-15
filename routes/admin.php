@@ -22,6 +22,7 @@ use App\Http\Controllers\Admin\Orders\OrderController;
 use App\Http\Controllers\Admin\Orders\OrderRefundController;
 use App\Http\Controllers\Admin\Products\BrandController;
 use App\Http\Controllers\Admin\Products\CatalogImportController;
+use App\Http\Controllers\Admin\Products\ProductExportController;
 use App\Http\Controllers\Admin\Products\TyreModelController;
 use App\Http\Controllers\Admin\Products\TyreVariantController;
 use App\Http\Controllers\Admin\Promotions\PriceGuaranteeClaimController;
@@ -50,6 +51,10 @@ Route::middleware(['auth', 'verified'])
             Route::get('products/brands', [BrandController::class, 'index'])->name('products.brands.index');
             Route::get('products/brands/{brand}', [TyreModelController::class, 'index'])->name('products.brands.models.index');
             Route::get('products/models/{tyreModel}', [TyreVariantController::class, 'index'])->name('products.models.variants.index');
+
+            // Excel export of the catalogue (read-only, so view-gated).
+            Route::get('products/export', [ProductExportController::class, 'index'])->name('products.export.index');
+            Route::get('products/export/download', [ProductExportController::class, 'download'])->name('products.export.download');
         });
         Route::middleware('permission:products.manage')->group(function () {
             Route::post('products/brands', [BrandController::class, 'store'])->name('products.brands.store');
