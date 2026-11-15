@@ -2,6 +2,7 @@ import { Link } from '@inertiajs/react';
 import type { PropsWithChildren } from 'react';
 import BrandController from '@/actions/App/Http/Controllers/Admin/Products/BrandController';
 import CatalogImportController from '@/actions/App/Http/Controllers/Admin/Products/CatalogImportController';
+import ProductExportController from '@/actions/App/Http/Controllers/Admin/Products/ProductExportController';
 import { Can } from '@/components/can';
 import Heading from '@/components/heading';
 import { Button } from '@/components/ui/button';
@@ -37,11 +38,12 @@ export default function ProductsLayout({ children }: PropsWithChildren) {
         <div className="space-y-6 p-4">
             <Heading
                 title="Products"
-                description="Brand -> tyre model -> size variant catalog, and bulk supplier catalog import."
+                description="Brand -> tyre model -> size variant catalog, Excel export, and bulk supplier catalog import."
             />
 
             <nav className="flex gap-1 border-b" aria-label="Products">
                 {tab('Brands', BrandController.index().url)}
+                {tab('Export', ProductExportController.index().url)}
                 <Can permission="products.manage">
                     {tab('Bulk import', CatalogImportController.index().url)}
                 </Can>
