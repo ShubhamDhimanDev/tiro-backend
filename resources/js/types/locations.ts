@@ -89,9 +89,18 @@ export type Suburb = {
     state_id: number;
     state?: { id: number; code: string; name: string };
     postcode: string;
-    lat: string;
-    lng: string;
+    lat: string | null;
+    lng: string | null;
     service_zones?: SuburbZoneSummary[];
     created_at: string;
     updated_at: string;
+};
+
+export type SuburbImportResult = {
+    rowsProcessed: number;
+    created: number;
+    updated: number;
+    unchanged: number;
+    errors: { row: number; message: string }[];
+    dryRun: boolean;
 };

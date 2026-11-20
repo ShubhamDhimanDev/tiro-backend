@@ -101,6 +101,10 @@ class ServiceabilityResolver
 
         foreach ($radiusZones as $zone) {
             foreach ($suburbs as $suburb) {
+                if ($suburb->lat === null || $suburb->lng === null) {
+                    continue;
+                }
+
                 $distanceKm = Geo::haversineKm(
                     (float) $zone->origin_lat,
                     (float) $zone->origin_lng,

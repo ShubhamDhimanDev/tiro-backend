@@ -11,17 +11,18 @@ use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Support\Carbon;
 
 /**
- * `lat`/`lng` are required (not nullable) — radius-type zone resolution
- * computes distance from `ServiceZone.origin_lat/lng` to a suburb's
- * centroid, so a null-coordinate suburb would silently and permanently
- * fail radius matching.
+ * `lat`/`lng` are nullable (bulk-imported suburbs arrive without a
+ * centroid) — radius-type zone resolution computes distance from
+ * `ServiceZone.origin_lat/lng` to a suburb's centroid, so a suburb without
+ * coordinates is skipped by radius matching until they are filled in.
+ * Suburb-list zone membership does not need coordinates.
  *
  * @property int $id
  * @property string $name
  * @property int $state_id
  * @property string $postcode
- * @property string $lat
- * @property string $lng
+ * @property string|null $lat
+ * @property string|null $lng
  * @property Carbon|null $created_at
  * @property Carbon|null $updated_at
  */

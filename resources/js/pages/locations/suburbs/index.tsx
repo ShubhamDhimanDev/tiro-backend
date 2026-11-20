@@ -1,9 +1,10 @@
 import { ListToolbar, useListFilter } from '@/components/list-toolbar';
-import { router, useForm } from '@inertiajs/react';
+import { Link, router, useForm } from '@inertiajs/react';
 import { Head } from '@inertiajs/react';
 import { useState } from 'react';
 import ServiceZoneSuburbController from '@/actions/App/Http/Controllers/Admin/Locations/ServiceZoneSuburbController';
 import SuburbController from '@/actions/App/Http/Controllers/Admin/Locations/SuburbController';
+import SuburbImportController from '@/actions/App/Http/Controllers/Admin/Locations/SuburbImportController';
 import { Can } from '@/components/can';
 import InputError from '@/components/input-error';
 import { Badge } from '@/components/ui/badge';
@@ -224,7 +225,7 @@ function SuburbFormDialog({
                             <InputError message={form.errors.postcode} />
                         </div>
                         <div className="grid gap-2">
-                            <Label htmlFor="lat">Latitude *</Label>
+                            <Label htmlFor="lat">Latitude</Label>
                             <Input
                                 id="lat"
                                 value={form.data.lat}
@@ -235,7 +236,7 @@ function SuburbFormDialog({
                             <InputError message={form.errors.lat} />
                         </div>
                         <div className="grid gap-2">
-                            <Label htmlFor="lng">Longitude *</Label>
+                            <Label htmlFor="lng">Longitude</Label>
                             <Input
                                 id="lng"
                                 value={form.data.lng}
@@ -247,8 +248,9 @@ function SuburbFormDialog({
                         </div>
                     </div>
                     <p className="text-muted-foreground -mt-2 text-xs">
-                        Coordinates are required — a missing centroid silently
-                        breaks radius-zone matching for this suburb.
+                        Coordinates are optional, but without them this suburb
+                        is skipped by radius-zone matching (suburb-list zones
+                        still work).
                     </p>
 
                     {isEdit ? (
@@ -295,8 +297,13 @@ export default function SuburbsIndex({
         <>
             <Head title="Suburbs" />
 
-            <div className="flex justify-end">
+            <div className="flex justify-end gap-2">
                 <Can permission="locations.manage">
+                    <Button variant="outline" asChild>
+                        <Link href={SuburbImportController.index().url}>
+                            Import from Excel
+                        </Link>
+                    </Button>
                     <SuburbFormDialog
                         states={states}
                         suburbListZones={suburbListZones}
@@ -350,7 +357,14 @@ export default function SuburbsIndex({
                                             {suburb.postcode}
                                         </td>
                                         <td className="text-muted-foreground py-2">
-                                            {suburb.lat}, {suburb.lng}
+                                            {suburb.lat !== null &&
+                                            suburb.lng !== null ? (
+                                                `${suburb.lat}, ${suburb.lng}`
+                                            ) : (
+                                                <Badge variant="outline">
+                                                    Missing
+                                                </Badge>
+                                            )}
                                         </td>
                                         <td className="py-2">
                                             <div className="flex flex-wrap gap-1">

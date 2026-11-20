@@ -11,10 +11,9 @@ use Illuminate\Validation\Rule;
 /**
  * Shared create/update rules for {@see Suburb}.
  *
- * `lat`/`lng` are required (not optional) — a radius-type zone match
- * computes distance from a suburb's centroid, so a null-coordinate suburb
- * would silently and permanently fail radius resolution. This form is the
- * only gate against that bad data getting in.
+ * `lat`/`lng` are optional but must be given together — a radius-type zone
+ * match computes distance from a suburb's centroid, so a suburb without
+ * coordinates is skipped by radius resolution until they are filled in.
  */
 class SuburbRequest extends FormRequest
 {
@@ -45,8 +44,8 @@ class SuburbRequest extends FormRequest
                     ->where('name', $this->input('name'))
                     ->ignore($suburb),
             ],
-            'lat' => ['required', 'numeric', 'between:-90,90'],
-            'lng' => ['required', 'numeric', 'between:-180,180'],
+            'lat' => ['nullable', 'required_with:lng', 'numeric', 'between:-90,90'],
+            'lng' => ['nullable', 'required_with:lat', 'numeric', 'between:-180,180'],
         ];
     }
 }

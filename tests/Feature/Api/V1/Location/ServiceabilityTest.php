@@ -3,6 +3,7 @@
 use App\Enums\Status;
 use App\Models\ServiceZone;
 use App\Models\State;
+use App\Models\Suburb;
 use Database\Seeders\LocationSeeder;
 
 /**
@@ -149,4 +150,13 @@ it('does not treat a zone as serviceable when its own status is not active', fun
 it('does not serve Perth or any other WA postcode, because only Melbourne is seeded', function () {
     $this->postJson('/api/v1/serviceability', ['postcode' => '6000'])->assertOk()->assertJsonPath('serviceable', false);
     $this->postJson('/api/v1/serviceability', ['suburb' => 'Perth'])->assertOk()->assertJsonPath('serviceable', false);
+});
+
+it('skips a suburb without coordinates when resolving radius zones', function () {
+    $vic = State::query()->where('code', 'VIC')->firstOrFail();
+    Suburb::factory()->create(['name' => 'Coordless', 'state_id' => $vic->id, 'postcode' => '3999', 'lat' => null, 'lng' => null]);
+
+    $this->postJson('/api/v1/serviceability', ['suburb' => 'Coordless'])
+        ->assertOk()
+        ->assertJsonPath('serviceable', false);
 });
