@@ -10,7 +10,7 @@ beforeEach(function () {
     $this->seed(RolesAndPermissionsSeeder::class);
 });
 
-test('lat and lng are required to create a suburb', function () {
+test('lat and lng must be given together when creating a suburb', function () {
     $admin = actingSuperAdmin();
     $state = State::factory()->create();
 
@@ -18,12 +18,27 @@ test('lat and lng are required to create a suburb', function () {
         'name' => 'Richmond',
         'state_id' => $state->id,
         'postcode' => '3121',
-        'lat' => null,
+        'lat' => -37.82,
         'lng' => null,
     ]);
 
-    $response->assertSessionHasErrors(['lat', 'lng']);
+    $response->assertSessionHasErrors(['lng']);
     $this->assertDatabaseMissing('suburbs', ['name' => 'Richmond']);
+});
+
+test('a suburb can be created without coordinates', function () {
+    $admin = actingSuperAdmin();
+    $state = State::factory()->create();
+
+    $this->actingAs($admin)->post(route('admin.locations.suburbs.store'), [
+        'name' => 'Richmond',
+        'state_id' => $state->id,
+        'postcode' => '3121',
+        'lat' => null,
+        'lng' => null,
+    ])->assertSessionHasNoErrors();
+
+    expect(Suburb::where('name', 'Richmond')->sole()->lat)->toBeNull();
 });
 
 test('a super_admin can create, update, and delete a suburb', function () {

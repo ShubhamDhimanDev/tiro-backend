@@ -17,6 +17,7 @@ use App\Http\Controllers\Admin\Locations\ServiceZoneController;
 use App\Http\Controllers\Admin\Locations\ServiceZoneSuburbController;
 use App\Http\Controllers\Admin\Locations\StateController;
 use App\Http\Controllers\Admin\Locations\SuburbController;
+use App\Http\Controllers\Admin\Locations\SuburbImportController;
 use App\Http\Controllers\Admin\Media\MediaController;
 use App\Http\Controllers\Admin\Orders\OrderController;
 use App\Http\Controllers\Admin\Orders\OrderRefundController;
@@ -110,6 +111,12 @@ Route::middleware(['auth', 'verified'])
             Route::post('locations/suburbs', [SuburbController::class, 'store'])->name('locations.suburbs.store');
             Route::put('locations/suburbs/{suburb}', [SuburbController::class, 'update'])->name('locations.suburbs.update');
             Route::delete('locations/suburbs/{suburb}', [SuburbController::class, 'destroy'])->name('locations.suburbs.destroy');
+
+            // Bulk create/update from an Excel/CSV sheet. Both the upload
+            // form and the processing sit behind `locations.manage` — an
+            // upload-only screen has no meaningful read-only mode.
+            Route::get('locations/suburbs/import', [SuburbImportController::class, 'index'])->name('locations.suburbs.import.index');
+            Route::post('locations/suburbs/import', [SuburbImportController::class, 'store'])->name('locations.suburbs.import.store');
         });
 
         // Vehicles — Vehicle + nested VehicleFitment row-level CRUD, plus
