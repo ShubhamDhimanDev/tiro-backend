@@ -12,14 +12,14 @@ use App\Services\Commerce\SizePricingService;
 use Illuminate\Testing\TestResponse;
 
 /**
- * Size-based fitting pricing through the real pricing engine: the tyre keeps
- * its own price and a fitting charge, set by rim band and tyre count, is added
- * (folded into the line, never a separate charge). Cents, GST-inclusive.
+ * Fitting pricing through the real pricing engine: the tyre keeps its own
+ * price and a fitting charge, set by the number of tyres, is added (folded
+ * into the line, never a separate charge). The client's fitting is the same
+ * for every rim size: $200 / $300 / $400 / $400 for 1 / 2 / 3 / 4 tyres.
+ * Cents, GST-inclusive.
  */
 beforeEach(function () {
-    // The client's fitting prices.
-    SizePriceBand::factory()->rims(16, 17)->withTiers([16000, 26000, 36000, 37000])->create();
-    SizePriceBand::factory()->rims(18, 30)->withTiers([17000, 27000, 37000, 38000])->create();
+    SizePriceBand::factory()->rims(10, 30)->withTiers([20000, 30000, 40000, 40000])->create();
 });
 
 /** A variant of a brand-new brand and model, so tests can mix brands freely. */
@@ -41,7 +41,7 @@ function priceCart(array $lines): TestResponse
     ]);
 }
 
-it('adds the 16-17 inch fitting to the tyre price for 1 to 4 tyres', function (int $quantity, int $fitting) {
+it('adds the fitting to the tyre price for 1 to 4 tyres, and 4 costs the same fitting as 3', function (int $quantity, int $fitting) {
     $response = priceCart([[sizedVariant(17, 10000), $quantity]])->assertOk();
 
     $expected = 10000 * $quantity + $fitting;
@@ -49,38 +49,42 @@ it('adds the 16-17 inch fitting to the tyre price for 1 to 4 tyres', function (i
     expect($response->json('data.subtotal'))->toBe($expected)
         ->and($response->json('data.grand_total'))->toBe($expected)
         ->and($response->json('data.lines.0.line_total'))->toBe($expected);
-})->with([[1, 16000], [2, 26000], [3, 36000], [4, 37000]]);
+})->with([[1, 20000], [2, 30000], [3, 40000], [4, 40000]]);
 
-it('adds the 18 inch and larger fitting', function (int $rim, int $quantity, int $fitting) {
-    priceCart([[sizedVariant($rim, 10000), $quantity]])->assertOk()
-        ->assertJsonPath('data.grand_total', 10000 * $quantity + $fitting);
-})->with([[18, 1, 17000], [19, 2, 27000], [20, 3, 37000], [20, 4, 38000], [24, 4, 38000]]);
+it('charges the same fitting whatever the rim size', function (int $rim) {
+    priceCart([[sizedVariant($rim, 10000), 2]])->assertOk()->assertJsonPath('data.grand_total', 20000 + 30000);
+})->with([13, 15, 16, 17, 18, 19, 20, 22, 24]);
 
-it('keeps the tyre price per brand: only the fitting is size-based', function () {
+it('keeps the tyre price per brand: only the fitting is added', function () {
     $cheap = sizedVariant(16, 5000);
-    $premium = sizedVariant(16, 30000);
+    $premium = sizedVariant(21, 30000);
 
-    expect(priceCart([[$cheap, 2]])->json('data.grand_total'))->toBe(2 * 5000 + 26000)
-        ->and(priceCart([[$premium, 2]])->json('data.grand_total'))->toBe(2 * 30000 + 26000);
+    expect(priceCart([[$cheap, 2]])->json('data.grand_total'))->toBe(2 * 5000 + 30000)
+        ->and(priceCart([[$premium, 2]])->json('data.grand_total'))->toBe(2 * 30000 + 30000);
 });
 
-it('shares one fitting total across lines in the same band', function () {
-    $response = priceCart([[sizedVariant(16, 10000), 2], [sizedVariant(17, 20000), 2]])->assertOk();
+it('shares one fitting total across lines', function () {
+    $response = priceCart([[sizedVariant(16, 10000), 2], [sizedVariant(21, 20000), 2]])->assertOk();
 
-    // 4 tyres in the 16-17 band = $370 fitting, split across both lines to the cent.
-    expect($response->json('data.grand_total'))->toBe(2 * 10000 + 2 * 20000 + 37000)
-        ->and($response->json('data.lines.0.line_total'))->toBe(2 * 10000 + 18500)
-        ->and(collect($response->json('data.lines'))->sum('line_total'))->toBe(97000);
+    // 4 tyres = $400 fitting, split across both lines to the cent.
+    expect($response->json('data.grand_total'))->toBe(2 * 10000 + 2 * 20000 + 40000)
+        ->and($response->json('data.lines.0.line_total'))->toBe(2 * 10000 + 20000)
+        ->and(collect($response->json('data.lines'))->sum('line_total'))->toBe(100000);
 });
 
 it('shares an uneven fitting total across lines without losing a cent', function () {
     $response = priceCart([[sizedVariant(16, 10000), 1], [sizedVariant(17, 10000), 2]])->assertOk();
 
-    expect($response->json('data.grand_total'))->toBe(3 * 10000 + 36000)
-        ->and(collect($response->json('data.lines'))->sum('line_total'))->toBe(66000);
+    expect($response->json('data.grand_total'))->toBe(3 * 10000 + 40000)
+        ->and(collect($response->json('data.lines'))->sum('line_total'))->toBe(70000);
 });
 
-it('charges fitting per band and adds them up', function () {
+it('still charges fitting per band when an admin sets different bands up', function () {
+    SizePriceBand::query()->delete();
+    SizePricingService::flush();
+    SizePriceBand::factory()->rims(10, 17)->withTiers([16000, 26000, 36000, 37000])->create();
+    SizePriceBand::factory()->rims(18, 30)->withTiers([17000, 27000, 37000, 38000])->create();
+
     $response = priceCart([[sizedVariant(17, 10000), 2], [sizedVariant(19, 10000), 2]])->assertOk();
 
     expect($response->json('data.grand_total'))->toBe(40000 + 26000 + 27000);
@@ -90,8 +94,8 @@ it('adds no fitting to a size no band covers', function () {
     priceCart([[sizedVariant(35, 30000), 2]])->assertOk()->assertJsonPath('data.grand_total', 60000);
 });
 
-it('ignores an inactive band', function () {
-    SizePriceBand::query()->where('rim_min', 16)->update(['status' => Status::Inactive]);
+it('adds no fitting when the band is inactive', function () {
+    SizePriceBand::query()->update(['status' => Status::Inactive]);
     SizePricingService::flush();
 
     priceCart([[sizedVariant(17, 20000), 2]])->assertOk()->assertJsonPath('data.grand_total', 40000);
@@ -111,12 +115,12 @@ it('applies a percentage promotion to the tyre price only, not the fitting', fun
 
     $response = priceCart([[$variant, 2]])->assertOk();
 
-    expect($response->json('data.subtotal'))->toBe(20000 + 26000)
+    expect($response->json('data.subtotal'))->toBe(20000 + 30000)
         ->and($response->json('data.discount_total'))->toBe(2000)
-        ->and($response->json('data.grand_total'))->toBe(44000);
+        ->and($response->json('data.grand_total'))->toBe(48000);
 });
 
-it('still gives a 4-for-3 promotion its free tyre on a banded size', function () {
+it('still gives a 4-for-3 promotion its free tyre', function () {
     $variant = sizedVariant(17, 10000);
     $promotion = Promotion::factory()->fourForThree()->create();
     PromotionEligibility::factory()->forVariant($variant)->create(['promotion_id' => $promotion->id]);
@@ -124,7 +128,7 @@ it('still gives a 4-for-3 promotion its free tyre on a banded size', function ()
     $response = priceCart([[$variant, 4]])->assertOk();
 
     expect($response->json('data.discount_total'))->toBe(10000)
-        ->and($response->json('data.grand_total'))->toBe(40000 + 37000 - 10000);
+        ->and($response->json('data.grand_total'))->toBe(40000 + 40000 - 10000);
 });
 
 it('builds a 1-4 tyre price ladder that includes the fitting', function () {
@@ -132,9 +136,9 @@ it('builds a 1-4 tyre price ladder that includes the fitting', function () {
 
     $ladder = $this->getJson('/api/v1/tyres/price-ladders?ids='.$variant->id)->assertOk()->json('data.'.$variant->id);
 
-    expect($ladder['list_price'])->toBe(26000)
+    expect($ladder['list_price'])->toBe(30000)
         ->and(collect($ladder['ladder'])->pluck('quantity')->all())->toBe([1, 2, 3, 4])
-        ->and(collect($ladder['ladder'])->pluck('total')->all())->toBe([26000, 46000, 66000, 77000]);
+        ->and(collect($ladder['ladder'])->pluck('total')->all())->toBe([30000, 50000, 70000, 80000]);
 });
 
 it('shows the fitted one-tyre price as the listing price', function () {
@@ -143,19 +147,19 @@ it('shows the fitted one-tyre price as the listing price', function () {
 
     $data = collect($this->getJson('/api/v1/tyres?per_page=50')->assertOk()->json('data'))->keyBy('id');
 
-    expect($data[$variant->id]['list_price'])->toBe(27000)
+    expect($data[$variant->id]['list_price'])->toBe(30000)
         ->and($data[$unbanded->id]['list_price'])->toBe(10000);
 });
 
 it('sorts and filters the listing by the fitted price', function () {
-    // 16" tyre 20000 + 16000 fitting = 36000; 19" tyre 15000 + 17000 = 32000; 35" tyre 33000 + 0 = 33000.
+    // 16" tyre 20000 + 20000 fitting = 40000; 19" tyre 15000 + 20000 = 35000; 35" tyre 33000 + 0 = 33000.
     $a = sizedVariant(16, 20000);
     $b = sizedVariant(19, 15000);
     $c = sizedVariant(35, 33000);
 
     $ids = fn (string $query): array => collect($this->getJson('/api/v1/tyres?per_page=50&'.$query)->assertOk()->json('data'))->pluck('id')->all();
 
-    expect($ids('sort=price_asc'))->toBe([$b->id, $c->id, $a->id])
-        ->and($ids('sort=price_desc'))->toBe([$a->id, $c->id, $b->id])
-        ->and($ids('price_min=330&price_max=350'))->toEqualCanonicalizing([$c->id]);
+    expect($ids('sort=price_asc'))->toBe([$c->id, $b->id, $a->id])
+        ->and($ids('sort=price_desc'))->toBe([$a->id, $b->id, $c->id])
+        ->and($ids('price_min=340&price_max=380'))->toEqualCanonicalizing([$b->id]);
 });
