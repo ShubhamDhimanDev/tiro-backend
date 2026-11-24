@@ -141,7 +141,7 @@ class CatalogImportService
      */
     public function missingSimpleColumns(array $row): array
     {
-        $headers = array_map(fn ($header) => mb_strtolower(trim((string) $header)), array_keys($row));
+        $headers = array_map(fn ($header) => $this->normalizeHeader((string) $header), array_keys($row));
 
         return array_keys(array_filter(
             self::SIMPLE_REQUIRED_COLUMNS,
@@ -589,7 +589,7 @@ class CatalogImportService
         $cells = [];
         foreach ($row as $header => $value) {
             if ($header !== '_row') {
-                $cells[mb_strtolower(trim((string) $header))] = $this->stringOrNull($value);
+                $cells[$this->normalizeHeader((string) $header)] = $this->stringOrNull($value);
             }
         }
 
@@ -732,6 +732,15 @@ class CatalogImportService
     private function enumKey(?string $label): string
     {
         return (string) preg_replace('/[\s-]+/', '_', mb_strtolower(trim((string) $label)));
+    }
+
+    /**
+     * Lowercased, trimmed column header with any UTF-8 byte-order mark removed
+     * (Excel's "CSV UTF-8" puts one in front of the first header).
+     */
+    private function normalizeHeader(string $header): string
+    {
+        return mb_strtolower(trim(str_replace("\u{FEFF}", '', $header)));
     }
 
     private function collapseSpaces(?string $value): ?string
@@ -1075,7 +1084,7 @@ class CatalogImportService
             return [];
         }
 
-        $header = array_map(fn ($column) => trim((string) $column), $header);
+        $header = array_map(fn ($column) => trim(str_replace("\u{FEFF}", '', (string) $column)), $header);
         $columnCount = count($header);
 
         $rows = [];

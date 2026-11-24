@@ -205,6 +205,25 @@ describe('upload', function () {
             ->and(AuditLog::query()->where('action', 'catalog.imported')->sole()->after['format'])->toBe('simple');
     });
 
+    it('accepts a CSV saved as UTF-8 with a byte-order mark (Excel "CSV UTF-8")', function () {
+        $path = tempnam(sys_get_temp_dir(), 'bom');
+        $handle = fopen($path, 'w');
+        fwrite($handle, "\xEF\xBB\xBF");
+        fputcsv($handle, array_keys(simpleRow()));
+        fputcsv($handle, simpleRow());
+        fclose($handle);
+
+        $this->actingAs(actingSuperAdmin())
+            ->post(route('admin.products.import.store'), [
+                'file' => new UploadedFile($path, 'bom.csv', 'text/csv', null, true),
+                'format' => 'simple',
+            ])
+            ->assertOk()
+            ->assertSessionHasNoErrors();
+
+        expect(TyreVariant::query()->count())->toBe(1);
+    });
+
     it('refuses a file whose columns do not match the chosen format', function () {
         $path = tempnam(sys_get_temp_dir(), 'woo');
         file_put_contents($path, "Name,Published,Brands\nZeta Alventi - ZT1,1,ZETA\n");
