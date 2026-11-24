@@ -115,9 +115,10 @@ function ImportResultCard({ result }: { result: CatalogImportResult }) {
                         {result.skipped.length > 0 && (
                             <div className="space-y-3">
                                 <Badge variant="outline">
-                                    {result.skipped.length} row(s) skipped —
-                                    deliberately excluded (unpublished or
-                                    duplicate export rows), not an error
+                                    {result.skipped.length} row(s) skipped — not
+                                    imported (unpublished or duplicate export
+                                    rows, or a row with an empty or invalid
+                                    value), the rest still were
                                 </Badge>
                                 <RowNoteTable notes={result.skipped} />
                             </div>
