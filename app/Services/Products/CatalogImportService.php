@@ -3,6 +3,7 @@
 namespace App\Services\Products;
 
 use App\Console\Commands\CatalogImportCommand;
+use App\Enums\CatalogImportFormat;
 use App\Enums\Status;
 use App\Enums\TyreCategory;
 use App\Enums\TyreConstruction;
@@ -101,7 +102,7 @@ class CatalogImportService
      * `.json` is decoded as a JSON array of objects, anything else is read
      * as CSV with a header row (the WooCommerce product-export shape).
      */
-    public function importFromFile(string $path, bool $dryRun = false): CatalogImportResult
+    public function importFromFile(string $path, bool $dryRun = false, CatalogImportFormat $format = CatalogImportFormat::Woocommerce): CatalogImportResult
     {
         if (! is_file($path)) {
             throw new RuntimeException("Import file not found: {$path}");
@@ -111,7 +112,41 @@ class CatalogImportService
             ? $this->readJson($path)
             : $this->readCsv($path);
 
-        return $this->import($rows, $dryRun);
+        return $this->import($rows, $dryRun, $format);
+    }
+
+    /**
+     * Columns the {@see CatalogImportFormat::Simple} layout cannot do without,
+     * lowercased, each with the header spellings accepted for it.
+     *
+     * @var array<string, list<string>>
+     */
+    private const SIMPLE_REQUIRED_COLUMNS = [
+        'Brand' => ['brand'],
+        'Model' => ['model'],
+        'SKU' => ['sku'],
+        'Size' => ['size'],
+        'Load index' => ['load index'],
+        'Speed rating' => ['speed rating'],
+        'Base price ($)' => ['base price ($)', 'base price', 'price'],
+    ];
+
+    /**
+     * Names of the required {@see CatalogImportFormat::Simple} columns that
+     * the given row's headers don't include — checked once per file so a
+     * wrong-format upload gets one clear message instead of an error per row.
+     *
+     * @param  array<string, mixed>  $row  Any one decoded row; only its keys are read.
+     * @return list<string>
+     */
+    public function missingSimpleColumns(array $row): array
+    {
+        $headers = array_map(fn ($header) => mb_strtolower(trim((string) $header)), array_keys($row));
+
+        return array_keys(array_filter(
+            self::SIMPLE_REQUIRED_COLUMNS,
+            fn (array $aliases) => array_intersect($aliases, $headers) === [],
+        ));
     }
 
     /**
@@ -130,16 +165,23 @@ class CatalogImportService
      *                                            An optional `_row` key is used as the reported row number;
      *                                            otherwise rows are numbered from 1 in array order.
      */
-    public function import(array $rows, bool $dryRun = false): CatalogImportResult
+    public function import(array $rows, bool $dryRun = false, CatalogImportFormat $format = CatalogImportFormat::Woocommerce): CatalogImportResult
     {
         $errors = [];
         $warnings = [];
         $skipped = [];
         $parsedRows = [];
 
+        // Spreadsheet exports routinely carry fully empty separator rows;
+        // they're noise, not data, so they're dropped (keys preserved, so
+        // reported row numbers still match the file).
+        $rows = array_filter($rows, fn (array $row) => ! $this->isBlankRow($row));
+
         foreach ($rows as $index => $row) {
             $rowNumber = is_int($row['_row'] ?? null) ? $row['_row'] : $index + 1;
-            $outcome = $this->parseRow($row);
+            $outcome = $format === CatalogImportFormat::Simple
+                ? $this->parseSimpleRow($row)
+                : $this->parseRow($row);
 
             if ($outcome['skip'] !== null) {
                 $skipped[] = ['row' => $rowNumber, 'message' => $outcome['skip']];
@@ -316,7 +358,7 @@ class CatalogImportService
                         $variant->slug = TyreVariant::generateUniqueSlug($variant);
                     }
 
-                    $variant->fill([
+                    $attributes = [
                         'tyre_model_id' => $tyreModel->id,
                         'sku' => $data['sku'],
                         'width' => $data['width'],
@@ -325,11 +367,20 @@ class CatalogImportService
                         'load_index' => $data['load_index'],
                         'speed_rating' => $data['speed_rating'],
                         'sidewall' => $data['sidewall'],
-                        'ean' => $data['ean'],
-                        'weight_kg' => $data['weight_kg'],
                         'base_price' => $data['base_price'],
-                        'status' => Status::Active,
-                    ])->save();
+                        'status' => $data['status'] ?? Status::Active,
+                    ];
+
+                    // A format with no EAN/weight column leaves the keys out
+                    // altogether, so re-importing doesn't wipe values an
+                    // admin or an earlier import already set.
+                    foreach (['ean', 'weight_kg'] as $optional) {
+                        if (array_key_exists($optional, $data)) {
+                            $attributes[$optional] = $data[$optional];
+                        }
+                    }
+
+                    $variant->fill($attributes)->save();
 
                     $isNewVariant ? $variantsCreated++ : $variantsUpdated++;
                 }
@@ -517,6 +568,165 @@ class CatalogImportService
                 'base_price' => $priceCents,
             ],
         ];
+    }
+
+    /**
+     * Validate, coerce, and map one row of the {@see CatalogImportFormat::Simple}
+     * layout into the same `data` shape {@see parseRow()} produces. Values are
+     * taken as written (names are not re-cased — this layout comes from our
+     * own export or a hand-edited price list, not a shouting supplier feed),
+     * and EAN/weight are omitted so existing values survive a re-import.
+     *
+     * @param  array<string, mixed>  $row
+     * @return array{skip: ?string, data: ?array<string, mixed>, errors: list<string>, warnings: list<string>}
+     */
+    private function parseSimpleRow(array $row): array
+    {
+        $cells = [];
+        foreach ($row as $header => $value) {
+            if ($header !== '_row') {
+                $cells[mb_strtolower(trim((string) $header))] = $this->stringOrNull($value);
+            }
+        }
+
+        $errors = [];
+        $warnings = [];
+
+        $brandName = $this->collapseSpaces($cells['brand'] ?? null);
+        if ($brandName === null) {
+            $errors[] = 'The Brand column is required.';
+        }
+
+        $modelName = $this->collapseSpaces($cells['model'] ?? null);
+        if ($modelName === null) {
+            $errors[] = 'The Model column is required.';
+        }
+
+        $sku = $cells['sku'] ?? null;
+        if ($sku === null) {
+            $errors[] = 'The SKU column is required.';
+        }
+
+        $sizeRaw = $cells['size'] ?? null;
+        $width = $profile = $rimDiameter = null;
+        if ($sizeRaw === null) {
+            $errors[] = 'The Size column is required.';
+        } elseif (preg_match('/^(\d{3})\s*\/\s*(\d{2,3})\s*[A-Z]{0,2}R\s*(\d{2})\s*C?$/i', $sizeRaw, $match) === 1) {
+            [$width, $profile, $rimDiameter] = [(int) $match[1], (int) $match[2], (int) $match[3]];
+        } else {
+            $errors[] = sprintf('Unrecognised size "%s" — expected a format like 205/55R16.', $sizeRaw);
+        }
+
+        $loadIndex = $cells['load index'] ?? null;
+        if ($loadIndex === null) {
+            $errors[] = 'The Load index column is required.';
+        } elseif (! $this->looksLikeLoadIndex($loadIndex)) {
+            $warnings[] = sprintf('Unusual load index "%s" — imported as given; check it against the supplier data.', $loadIndex);
+        }
+
+        $speedRating = $cells['speed rating'] ?? null;
+        if ($speedRating === null) {
+            $errors[] = 'The Speed rating column is required.';
+        }
+
+        $priceRaw = $cells['base price ($)'] ?? $cells['base price'] ?? $cells['price'] ?? null;
+        $dollars = $this->parseDollarString($priceRaw === null ? null : str_replace(['$', ','], '', $priceRaw));
+        if ($dollars === null || $dollars < 0) {
+            $errors[] = sprintf('Unable to read a price from "%s".', $priceRaw ?? '');
+        }
+
+        if ($errors !== []) {
+            return ['skip' => null, 'data' => null, 'errors' => $errors, 'warnings' => []];
+        }
+
+        $category = TyreCategory::tryFrom($this->enumKey($cells['category'] ?? null));
+        if ($category === null) {
+            $warnings[] = sprintf('Category "%s" not recognised — defaulted to "car".', $cells['category'] ?? '');
+        }
+
+        $tyreType = TyreType::tryFrom($this->enumKey($cells['tyre type'] ?? null));
+        if ($tyreType === null) {
+            $warnings[] = sprintf('Tyre type "%s" not recognised — defaulted to "highway".', $cells['tyre type'] ?? '');
+        }
+
+        $status = Status::tryFrom($this->enumKey($cells['status'] ?? null));
+        if ($status === null && ($cells['status'] ?? null) !== null) {
+            $warnings[] = sprintf('Status "%s" not recognised — defaulted to "active".', $cells['status']);
+        }
+
+        return [
+            'skip' => null,
+            'errors' => [],
+            'warnings' => $warnings,
+            'data' => [
+                'brand_name' => $brandName,
+                'brand_slug' => Str::slug((string) $brandName),
+                'model_name' => $modelName,
+                'category' => $category ?? TyreCategory::Car,
+                'tyre_type' => $tyreType ?? TyreType::Highway,
+                'run_flat' => false,
+                'description' => null,
+                'image_url' => null,
+                'sku' => $sku,
+                'width' => $width,
+                'profile' => $profile,
+                'rim_diameter' => $rimDiameter,
+                'load_index' => $loadIndex,
+                'speed_rating' => $speedRating,
+                'sidewall' => $this->resolveSidewall((int) $rimDiameter, (string) $sizeRaw, (string) $loadIndex, (string) $speedRating),
+                'base_price' => (int) round($dollars * 100),
+                'status' => $status ?? Status::Active,
+            ],
+        ];
+    }
+
+    /**
+     * Whether every real cell of the row is empty (`_row` is bookkeeping).
+     *
+     * @param  array<string, mixed>  $row
+     */
+    private function isBlankRow(array $row): bool
+    {
+        foreach ($row as $key => $value) {
+            if ($key !== '_row' && $this->stringOrNull($value) !== null) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    /**
+     * A plausible tyre load index: 20–140, optionally a dual rating
+     * ("121/118") and/or an "XL" marking ("100XL").
+     */
+    private function looksLikeLoadIndex(string $value): bool
+    {
+        if (preg_match('/^(\d{2,3})(?:\/(\d{2,3}))?(?:\s*XL)?$/i', $value, $match) !== 1) {
+            return false;
+        }
+
+        foreach (array_filter([$match[1], $match[2] ?? null]) as $index) {
+            if ((int) $index < 20 || (int) $index > 140) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    /**
+     * Turns a human label ("All terrain", "Light truck", "4x4") into the
+     * lowercase snake_case value its enum uses.
+     */
+    private function enumKey(?string $label): string
+    {
+        return (string) preg_replace('/[\s-]+/', '_', mb_strtolower(trim((string) $label)));
+    }
+
+    private function collapseSpaces(?string $value): ?string
+    {
+        return $value === null ? null : (string) preg_replace('/\s+/u', ' ', $value);
     }
 
     /**

@@ -1,8 +1,9 @@
 import { useForm } from '@inertiajs/react';
-import { Head } from '@inertiajs/react';
+import { Head, Link } from '@inertiajs/react';
 import type { FormEvent } from 'react';
 import BrandController from '@/actions/App/Http/Controllers/Admin/Products/BrandController';
 import CatalogImportController from '@/actions/App/Http/Controllers/Admin/Products/CatalogImportController';
+import ProductExportController from '@/actions/App/Http/Controllers/Admin/Products/ProductExportController';
 import InputError from '@/components/input-error';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -15,15 +16,25 @@ import {
 } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from '@/components/ui/select';
 import type { BreadcrumbItem } from '@/types';
 import type {
     CatalogImportResult,
     CatalogImportRowNote,
 } from '@/types/catalog';
 
+type ImportFormat = 'woocommerce' | 'simple';
+
 type ImportFormData = {
     file: File | null;
     dry_run: boolean;
+    format: ImportFormat;
 };
 
 function RowNoteTable({ notes }: { notes: CatalogImportRowNote[] }) {
@@ -123,7 +134,11 @@ export default function CatalogImportIndex({
 }: {
     result?: CatalogImportResult;
 }) {
-    const form = useForm<ImportFormData>({ file: null, dry_run: false });
+    const form = useForm<ImportFormData>({
+        file: null,
+        dry_run: false,
+        format: 'woocommerce',
+    });
 
     const submit = (e: FormEvent) => {
         e.preventDefault();
@@ -143,16 +158,80 @@ export default function CatalogImportIndex({
                     <CardHeader>
                         <CardTitle>Bulk catalog import</CardTitle>
                         <CardDescription>
-                            Upload a WooCommerce product-export CSV (or JSON) to
-                            create/update brands, tyre models, and their size
-                            variants in bulk. Rows with{' '}
-                            <code>Published &lt; 1</code> or a "(Copy)" name
-                            suffix are treated as WooCommerce trash/duplicate
-                            export data and skipped automatically.
+                            Upload a CSV (or JSON) file to create/update brands,
+                            tyre models, and their size variants in bulk. Rows
+                            that already exist are updated; nothing is deleted.
                         </CardDescription>
                     </CardHeader>
                     <CardContent>
                         <form onSubmit={submit} className="space-y-4">
+                            <div className="grid gap-2">
+                                <Label htmlFor="format">File format</Label>
+                                <Select
+                                    value={form.data.format}
+                                    onValueChange={(v) =>
+                                        form.setData(
+                                            'format',
+                                            v as ImportFormat,
+                                        )
+                                    }
+                                >
+                                    <SelectTrigger
+                                        id="format"
+                                        className="w-full"
+                                    >
+                                        <SelectValue />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="woocommerce">
+                                            WooCommerce product export
+                                        </SelectItem>
+                                        <SelectItem value="simple">
+                                            Simple price list (one row per size)
+                                        </SelectItem>
+                                    </SelectContent>
+                                </Select>
+                                <p className="text-muted-foreground text-sm">
+                                    {form.data.format === 'simple' ? (
+                                        <>
+                                            Columns:{' '}
+                                            <code>
+                                                Brand, Model, Category, Tyre
+                                                type, SKU, Size, Load index,
+                                                Speed rating, Base price ($),
+                                                Status
+                                            </code>
+                                            . Size like <code>205/55R16</code>;
+                                            price in dollars. Empty rows are
+                                            ignored, and EAN/weight already on a
+                                            variant are kept. This is the layout
+                                            the{' '}
+                                            <Link
+                                                href={
+                                                    ProductExportController.index()
+                                                        .url
+                                                }
+                                                className="underline"
+                                            >
+                                                Export
+                                            </Link>{' '}
+                                            tab produces by default, so an
+                                            export can be edited and imported
+                                            back.
+                                        </>
+                                    ) : (
+                                        <>
+                                            A raw WooCommerce export. Rows with{' '}
+                                            <code>Published &lt; 1</code> or a
+                                            "(Copy)" name suffix are treated as
+                                            trash/duplicate data and skipped
+                                            automatically.
+                                        </>
+                                    )}
+                                </p>
+                                <InputError message={form.errors.format} />
+                            </div>
+
                             <div className="grid gap-2">
                                 <Label htmlFor="file">CSV or JSON file</Label>
                                 <input

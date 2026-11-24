@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Admin\Products;
 
+use App\Enums\CatalogImportFormat;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Admin\Products\CatalogImportRequest;
 use App\Models\AuditLog;
@@ -36,10 +37,23 @@ class CatalogImportController extends Controller
         /** @var UploadedFile $file */
         $file = $request->file('file');
 
-        $rows = $this->decodeRows($file);
-        $result = $importer->import($rows, $request->boolean('dry_run'));
+        $format = $request->enum('format', CatalogImportFormat::class) ?? CatalogImportFormat::Woocommerce;
 
-        $this->recordImport($request, $file, $result);
+        $rows = $this->decodeRows($file);
+
+        if ($format === CatalogImportFormat::Simple && $rows !== []) {
+            $missing = $importer->missingSimpleColumns($rows[0]);
+
+            if ($missing !== []) {
+                throw ValidationException::withMessages([
+                    'file' => 'This file is missing the column(s): '.implode(', ', $missing).'. Check the file format selected above matches the file.',
+                ]);
+            }
+        }
+
+        $result = $importer->import($rows, $request->boolean('dry_run'), $format);
+
+        $this->recordImport($request, $file, $result, $format);
 
         return Inertia::render('products/import', [
             'result' => $this->serializeResult($result),
@@ -52,11 +66,12 @@ class CatalogImportController extends Controller
      * `TyreVariant` with id 0 because an import isn't about a single record;
      * the per-row errors/warnings/skips are kept (capped) in `after`.
      */
-    private function recordImport(CatalogImportRequest $request, UploadedFile $file, CatalogImportResult $result): void
+    private function recordImport(CatalogImportRequest $request, UploadedFile $file, CatalogImportResult $result, CatalogImportFormat $format): void
     {
         $cap = 100;
         $summary = [
             'file' => $file->getClientOriginalName(),
+            'format' => $format->value,
             'dry_run' => $result->dryRun,
             'rows_processed' => $result->rowsProcessed,
             'brands_created' => $result->brandsCreated,
