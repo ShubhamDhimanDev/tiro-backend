@@ -2,9 +2,11 @@
 
 namespace App\Http\Requests\Admin\Products;
 
+use App\Enums\CatalogImportFormat;
 use App\Support\Auth\AdminGuard;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Rule;
 
 /**
  * Validates the bulk product-catalog (Brand/TyreModel/TyreVariant) CSV/JSON
@@ -33,6 +35,7 @@ class CatalogImportRequest extends FormRequest
         return [
             'file' => ['required', 'file', 'extensions:csv,txt,json', 'max:10240'],
             'dry_run' => ['nullable', 'boolean'],
+            'format' => ['nullable', Rule::enum(CatalogImportFormat::class)],
         ];
     }
 }
