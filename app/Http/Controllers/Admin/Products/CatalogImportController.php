@@ -165,7 +165,7 @@ class CatalogImportController extends Controller
             return [];
         }
 
-        $header = array_map(fn ($column) => trim((string) $column), $header);
+        $header = array_map(fn ($column) => trim(str_replace("\u{FEFF}", '', (string) $column)), $header);
         $columnCount = count($header);
 
         $rows = [];
