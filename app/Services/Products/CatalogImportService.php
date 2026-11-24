@@ -572,7 +572,11 @@ class CatalogImportService
 
     /**
      * Validate, coerce, and map one row of the {@see CatalogImportFormat::Simple}
-     * layout into the same `data` shape {@see parseRow()} produces. Values are
+     * layout into the same `data` shape {@see parseRow()} produces.
+     *
+     * Every column is required and must hold a recognisable value; a row with
+     * any missing or invalid value is skipped whole (reported under `skipped`
+     * with the reasons) rather than imported with guessed defaults. Values are
      * taken as written (names are not re-cased — this layout comes from our
      * own export or a hand-edited price list, not a shouting supplier feed),
      * and EAN/weight are omitted so existing values survive a re-import.
@@ -589,81 +593,87 @@ class CatalogImportService
             }
         }
 
-        $errors = [];
-        $warnings = [];
+        $problems = [];
 
         $brandName = $this->collapseSpaces($cells['brand'] ?? null);
         if ($brandName === null) {
-            $errors[] = 'The Brand column is required.';
+            $problems[] = 'Brand is empty';
         }
 
         $modelName = $this->collapseSpaces($cells['model'] ?? null);
         if ($modelName === null) {
-            $errors[] = 'The Model column is required.';
+            $problems[] = 'Model is empty';
         }
 
         $sku = $cells['sku'] ?? null;
         if ($sku === null) {
-            $errors[] = 'The SKU column is required.';
+            $problems[] = 'SKU is empty';
         }
 
         $sizeRaw = $cells['size'] ?? null;
         $width = $profile = $rimDiameter = null;
         if ($sizeRaw === null) {
-            $errors[] = 'The Size column is required.';
+            $problems[] = 'Size is empty';
         } elseif (preg_match('/^(\d{3})\s*\/\s*(\d{2,3})\s*[A-Z]{0,2}R\s*(\d{2})\s*C?$/i', $sizeRaw, $match) === 1) {
             [$width, $profile, $rimDiameter] = [(int) $match[1], (int) $match[2], (int) $match[3]];
         } else {
-            $errors[] = sprintf('Unrecognised size "%s" — expected a format like 205/55R16.', $sizeRaw);
+            $problems[] = sprintf('Size "%s" is not like 205/55R16', $sizeRaw);
         }
 
         $loadIndex = $cells['load index'] ?? null;
         if ($loadIndex === null) {
-            $errors[] = 'The Load index column is required.';
+            $problems[] = 'Load index is empty';
         } elseif (! $this->looksLikeLoadIndex($loadIndex)) {
-            $warnings[] = sprintf('Unusual load index "%s" — imported as given; check it against the supplier data.', $loadIndex);
+            $problems[] = sprintf('Load index "%s" is not valid', $loadIndex);
         }
 
         $speedRating = $cells['speed rating'] ?? null;
         if ($speedRating === null) {
-            $errors[] = 'The Speed rating column is required.';
+            $problems[] = 'Speed rating is empty';
         }
 
         $priceRaw = $cells['base price ($)'] ?? $cells['base price'] ?? $cells['price'] ?? null;
         $dollars = $this->parseDollarString($priceRaw === null ? null : str_replace(['$', ','], '', $priceRaw));
-        if ($dollars === null || $dollars < 0) {
-            $errors[] = sprintf('Unable to read a price from "%s".', $priceRaw ?? '');
-        }
-
-        if ($errors !== []) {
-            return ['skip' => null, 'data' => null, 'errors' => $errors, 'warnings' => []];
+        if ($priceRaw === null) {
+            $problems[] = 'Base price is empty';
+        } elseif ($dollars === null || $dollars < 0) {
+            $problems[] = sprintf('Base price "%s" is not a number', $priceRaw);
         }
 
         $category = TyreCategory::tryFrom($this->enumKey($cells['category'] ?? null));
         if ($category === null) {
-            $warnings[] = sprintf('Category "%s" not recognised — defaulted to "car".', $cells['category'] ?? '');
+            $problems[] = ($cells['category'] ?? null) === null ? 'Category is empty' : sprintf('Category "%s" is not recognised', $cells['category']);
         }
 
         $tyreType = TyreType::tryFrom($this->enumKey($cells['tyre type'] ?? null));
         if ($tyreType === null) {
-            $warnings[] = sprintf('Tyre type "%s" not recognised — defaulted to "highway".', $cells['tyre type'] ?? '');
+            $problems[] = ($cells['tyre type'] ?? null) === null ? 'Tyre type is empty' : sprintf('Tyre type "%s" is not recognised', $cells['tyre type']);
         }
 
         $status = Status::tryFrom($this->enumKey($cells['status'] ?? null));
-        if ($status === null && ($cells['status'] ?? null) !== null) {
-            $warnings[] = sprintf('Status "%s" not recognised — defaulted to "active".', $cells['status']);
+        if ($status === null) {
+            $problems[] = ($cells['status'] ?? null) === null ? 'Status is empty' : sprintf('Status "%s" is not recognised', $cells['status']);
+        }
+
+        if ($problems !== []) {
+            return [
+                'skip' => sprintf('Skipped%s — %s.', $sku !== null ? " {$sku}" : '', implode('; ', $problems)),
+                'data' => null,
+                'errors' => [],
+                'warnings' => [],
+            ];
         }
 
         return [
             'skip' => null,
             'errors' => [],
-            'warnings' => $warnings,
+            'warnings' => [],
             'data' => [
                 'brand_name' => $brandName,
                 'brand_slug' => Str::slug((string) $brandName),
                 'model_name' => $modelName,
-                'category' => $category ?? TyreCategory::Car,
-                'tyre_type' => $tyreType ?? TyreType::Highway,
+                'category' => $category,
+                'tyre_type' => $tyreType,
                 'run_flat' => false,
                 'description' => null,
                 'image_url' => null,
@@ -675,7 +685,7 @@ class CatalogImportService
                 'speed_rating' => $speedRating,
                 'sidewall' => $this->resolveSidewall((int) $rimDiameter, (string) $sizeRaw, (string) $loadIndex, (string) $speedRating),
                 'base_price' => (int) round($dollars * 100),
-                'status' => $status ?? Status::Active,
+                'status' => $status,
             ],
         ];
     }

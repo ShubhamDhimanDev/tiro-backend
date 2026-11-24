@@ -6,6 +6,7 @@ use App\Enums\TyreCategory;
 use App\Enums\TyreSidewall;
 use App\Enums\TyreType;
 use App\Models\AuditLog;
+use App\Models\Brand;
 use App\Models\TyreModel;
 use App\Models\TyreVariant;
 use App\Services\Products\CatalogImportService;
@@ -82,7 +83,7 @@ it('imports a simple-format row into brand, model and variant', function () {
         ->and($variant->status)->toBe(Status::Active);
 });
 
-it('ignores fully empty rows and keeps the file row numbers on errors', function () {
+it('ignores fully empty rows and keeps the file row numbers on skipped rows', function () {
     $blank = array_fill_keys(array_keys(simpleRow()), '');
 
     $result = $this->importer->import([
@@ -93,10 +94,10 @@ it('ignores fully empty rows and keeps the file row numbers on errors', function
     ], format: CatalogImportFormat::Simple);
 
     expect($result->rowsProcessed)->toBe(2)
-        ->and($result->skipped)->toBe([])
-        ->and($result->errors)->toHaveCount(1)
-        ->and($result->errors[0]['row'])->toBe(4)
-        ->and($result->errors[0]['message'])->toContain('nonsense');
+        ->and($result->errors)->toBe([])
+        ->and($result->skipped)->toHaveCount(1)
+        ->and($result->skipped[0]['row'])->toBe(4)
+        ->and($result->skipped[0]['message'])->toContain('nonsense');
 
     expect(TyreVariant::query()->count())->toBe(1);
 });
@@ -135,40 +136,46 @@ it('updates the price of an existing variant without wiping its EAN or weight', 
         ->and((float) $variant->weight_kg)->toBe(11.5);
 });
 
-it('honours the Status column and warns on values it does not recognise', function () {
+it('honours the Status column', function () {
     $result = $this->importer->import([
         simpleRow(['SKU' => 'D-1', 'Status' => 'Draft']),
-        simpleRow(['SKU' => 'D-2', 'Size' => '235/75R15', 'Status' => 'Live']),
+        simpleRow(['SKU' => 'D-2', 'Size' => '235/75R15', 'Status' => 'inactive']),
     ], format: CatalogImportFormat::Simple);
 
-    expect(TyreVariant::query()->where('sku', 'D-1')->value('status'))->toBe(Status::Draft)
-        ->and(TyreVariant::query()->where('sku', 'D-2')->value('status'))->toBe(Status::Active)
-        ->and($result->warnings)->toHaveCount(1)
-        ->and($result->warnings[0]['message'])->toContain('Live');
+    expect($result->skipped)->toBe([])
+        ->and(TyreVariant::query()->where('sku', 'D-1')->value('status'))->toBe(Status::Draft)
+        ->and(TyreVariant::query()->where('sku', 'D-2')->value('status'))->toBe(Status::Inactive);
 });
 
-it('warns about unrecognised category/tyre type and implausible load indexes but still imports', function () {
+it('skips a row with any invalid or empty value, with the reasons, and imports the rest', function () {
     $result = $this->importer->import([
-        simpleRow(['Category' => 'Tractor', 'Tyre type' => 'Slick', 'Load index' => '1 1/51']),
-        simpleRow(['SKU' => 'BS-2', 'Size' => '225/70R16', 'Load index' => '16']),
+        simpleRow(['SKU' => 'OK-1']),
+        simpleRow(['SKU' => 'L-1', 'Size' => '235/75R15', 'Load index' => '1 1/51']),
+        simpleRow(['SKU' => 'L-2', 'Size' => '245/75R15', 'Load index' => '16']),
+        simpleRow(['SKU' => 'C-1', 'Size' => '255/75R15', 'Category' => 'Tractor']),
+        simpleRow(['SKU' => 'T-1', 'Size' => '265/75R15', 'Tyre type' => '']),
+        simpleRow(['SKU' => 'S-1', 'Size' => '275/75R15', 'Status' => 'Live']),
+        simpleRow(['SKU' => 'P-1', 'Size' => '285/75R15', 'Base price ($)' => 'free']),
+        simpleRow(['SKU' => '', 'Size' => '295/75R15']),
+        simpleRow(['SKU' => 'B-1', 'Size' => '305/75R15', 'Brand' => '']),
+        simpleRow(['SKU' => 'Z-1', 'Size' => 'nonsense']),
     ], format: CatalogImportFormat::Simple);
 
     expect($result->errors)->toBe([])
-        ->and($result->warnings)->toHaveCount(4)
-        ->and(TyreVariant::query()->count())->toBe(2)
-        ->and(TyreModel::query()->sole()->category)->toBe(TyreCategory::Car);
+        ->and($result->warnings)->toBe([])
+        ->and($result->skipped)->toHaveCount(9)
+        ->and(TyreVariant::query()->pluck('sku')->all())->toBe(['OK-1']);
+
+    $reasons = collect($result->skipped)->pluck('message')->implode(' ');
+
+    expect($reasons)->toContain('Load index "1 1/51"', 'Load index "16"', 'Category "Tractor"', 'Tyre type is empty', 'Status "Live"', 'Base price "free"', 'SKU is empty', 'Brand is empty', 'Size "nonsense"');
 });
 
-it('rejects rows with a bad price, missing SKU or missing brand without stopping the rest', function () {
-    $result = $this->importer->import([
-        simpleRow(['SKU' => 'OK-1']),
-        simpleRow(['SKU' => 'P-1', 'Size' => '235/75R15', 'Base price ($)' => 'free']),
-        simpleRow(['SKU' => '', 'Size' => '245/70R16']),
-        simpleRow(['SKU' => 'B-1', 'Size' => '255/70R16', 'Brand' => '']),
-    ], format: CatalogImportFormat::Simple);
+it('does not create a brand or model for a row that is skipped', function () {
+    $this->importer->import([simpleRow(['Brand' => 'Ghost', 'Load index' => ''])], format: CatalogImportFormat::Simple);
 
-    expect($result->errors)->toHaveCount(3)
-        ->and(TyreVariant::query()->pluck('sku')->all())->toBe(['OK-1']);
+    expect(TyreModel::query()->count())->toBe(0)
+        ->and(Brand::query()->where('slug', 'ghost')->exists())->toBeFalse();
 });
 
 it('reports which required columns a file is missing', function () {
