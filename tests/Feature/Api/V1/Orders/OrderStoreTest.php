@@ -6,12 +6,14 @@ use App\Enums\OrderStatus;
 use App\Enums\PaymentStatus;
 use App\Enums\PaymentTransactionStatus;
 use App\Enums\PaymentType;
+use App\Enums\Status;
 use App\Models\Address;
 use App\Models\Booking;
 use App\Models\BookingLineItem;
 use App\Models\Customer;
 use App\Models\Order;
 use App\Models\Payment;
+use App\Models\ServiceZone;
 use App\Models\Suburb;
 use App\Models\TyreVariant;
 use App\Services\Payments\PayPalPaymentGateway;
@@ -42,7 +44,7 @@ function orderableBookingFixture(array $bookingOverrides = []): array
         'manage_token_hash' => Booking::hashManageToken('guest-token-123'),
     ], $bookingOverrides));
     BookingLineItem::factory()->create(['booking_id' => $booking->id, 'tyre_variant_id' => $variant->id, 'quantity' => 4]);
-    $suburb = Suburb::factory()->create();
+    $suburb = Suburb::factory()->servicedBy($booking->serviceZone)->create();
 
     return compact('booking', 'variant', 'suburb');
 }
@@ -310,7 +312,7 @@ it('creates an authenticated customer order without issuing an order_token', fun
     $variant = TyreVariant::factory()->create(['base_price' => 18900]);
     $booking = Booking::factory()->create(['customer_id' => $customer->id]);
     BookingLineItem::factory()->create(['booking_id' => $booking->id, 'tyre_variant_id' => $variant->id, 'quantity' => 4]);
-    $suburb = Suburb::factory()->create();
+    $suburb = Suburb::factory()->servicedBy($booking->serviceZone)->create();
 
     $response = $this->withHeader('Authorization', 'Bearer '.$customer->createToken('storefront')->plainTextToken)
         ->withHeader('Idempotency-Key', (string) Str::uuid())
@@ -396,4 +398,57 @@ it('replays the PayPal order_id unchanged (no second PayPal Order call) on an Id
     // Unlike Stripe's client_secret re-fetch, nothing needs re-fetching for
     // a PayPal replay — the order id is simply re-surfaced unchanged.
     expect($paypalGateway->retrievedOrderIds)->toBeEmpty();
+});
+
+it('422s on address.suburb_id when no zone serves the fitting address', function () {
+    ['booking' => $booking] = orderableBookingFixture();
+    // Perth — far outside any factory zone (all around VIC/NSW).
+    $outOfArea = Suburb::factory()->create(['lat' => -31.9523, 'lng' => 115.8613]);
+
+    $response = $this->withHeader('Idempotency-Key', (string) Str::uuid())
+        ->withHeader('X-Booking-Manage-Token', 'guest-token-123')
+        ->postJson('/api/v1/orders', orderPayload($booking, $outOfArea));
+
+    $response->assertUnprocessable()->assertJsonValidationErrors(['address.suburb_id']);
+    expect(Order::query()->count())->toBe(0);
+    expect(Address::query()->count())->toBe(0);
+    expect($this->gateway->createdIntents)->toBeEmpty();
+});
+
+it('422s when the fitting address is served by a different zone than the booking', function () {
+    ['booking' => $booking] = orderableBookingFixture();
+    $otherZone = ServiceZone::factory()->radius(-33.8688, 151.2093)->create();
+    $otherZoneSuburb = Suburb::factory()->servicedBy($otherZone)->create();
+
+    $response = $this->withHeader('Idempotency-Key', (string) Str::uuid())
+        ->withHeader('X-Booking-Manage-Token', 'guest-token-123')
+        ->postJson('/api/v1/orders', orderPayload($booking, $otherZoneSuburb));
+
+    $response->assertUnprocessable()->assertJsonValidationErrors(['address.suburb_id']);
+    expect(Order::query()->count())->toBe(0);
+});
+
+it('422s when the booking zone was switched off after the hold was taken', function () {
+    ['booking' => $booking, 'suburb' => $suburb] = orderableBookingFixture();
+    $booking->serviceZone->update(['status' => Status::Inactive]);
+
+    $response = $this->withHeader('Idempotency-Key', (string) Str::uuid())
+        ->withHeader('X-Booking-Manage-Token', 'guest-token-123')
+        ->postJson('/api/v1/orders', orderPayload($booking, $suburb));
+
+    $response->assertUnprocessable()->assertJsonValidationErrors(['address.suburb_id']);
+    expect(Order::query()->count())->toBe(0);
+});
+
+it('accepts a fitting address listed in the booking’s suburb-list zone', function () {
+    ['booking' => $booking] = orderableBookingFixture([
+        'service_zone_id' => ServiceZone::factory()->suburbList(),
+    ]);
+    $listedSuburb = Suburb::factory()->servicedBy($booking->serviceZone)->create();
+
+    $response = $this->withHeader('Idempotency-Key', (string) Str::uuid())
+        ->withHeader('X-Booking-Manage-Token', 'guest-token-123')
+        ->postJson('/api/v1/orders', orderPayload($booking, $listedSuburb));
+
+    $response->assertCreated();
 });

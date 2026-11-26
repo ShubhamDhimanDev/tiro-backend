@@ -241,7 +241,7 @@ it('an order for a flexible booking stamps and labels the flexible discount', fu
     $variant = TyreVariant::factory()->create(['base_price' => 18900]);
     $booking = Booking::factory()->create(['manage_token_hash' => Booking::hashManageToken('guest-token-123'), 'is_flexible' => true]);
     BookingLineItem::factory()->create(['booking_id' => $booking->id, 'tyre_variant_id' => $variant->id, 'quantity' => 4]);
-    $suburb = Suburb::factory()->create();
+    $suburb = Suburb::factory()->servicedBy($booking->serviceZone)->create();
 
     $response = $this->withHeader('Idempotency-Key', (string) Str::uuid())
         ->withHeader('X-Booking-Manage-Token', 'guest-token-123')
@@ -259,7 +259,7 @@ it('an order for a normal booking has a null flexible_discount', function () {
     $variant = TyreVariant::factory()->create(['base_price' => 18900]);
     $booking = Booking::factory()->create(['manage_token_hash' => Booking::hashManageToken('guest-token-123')]);
     BookingLineItem::factory()->create(['booking_id' => $booking->id, 'tyre_variant_id' => $variant->id, 'quantity' => 4]);
-    $suburb = Suburb::factory()->create();
+    $suburb = Suburb::factory()->servicedBy($booking->serviceZone)->create();
 
     $response = $this->withHeader('Idempotency-Key', (string) Str::uuid())
         ->withHeader('X-Booking-Manage-Token', 'guest-token-123')

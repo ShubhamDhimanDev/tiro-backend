@@ -28,12 +28,15 @@ use App\Services\Commerce\PayPalCaptureService;
 use App\Services\Commerce\PricingLine;
 use App\Services\Commerce\PricingService;
 use App\Services\Commerce\StripePaymentConfirmationService;
+use App\Services\Location\ServiceabilityResolver;
+use Illuminate\Database\Eloquent\Collection as EloquentCollection;
 use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Str;
+use Illuminate\Validation\ValidationException;
 use RuntimeException;
 
 /**
@@ -64,6 +67,7 @@ class OrderController extends Controller
         private readonly PaymentGateway $gateway,
         private readonly PayPalCaptureService $captureService,
         private readonly StripePaymentConfirmationService $stripeConfirmation,
+        private readonly ServiceabilityResolver $serviceability,
     ) {}
 
     public function store(StoreOrderRequest $request): JsonResponse
@@ -85,6 +89,8 @@ class OrderController extends Controller
         if ($booking->status !== BookingStatus::PendingHold || $booking->hold_expires_at === null || $booking->hold_expires_at->isPast()) {
             return response()->json(['message' => __('This booking hold has expired, please choose another appointment.')], 409);
         }
+
+        $this->ensureAddressIsInBookingZone($request, $booking);
 
         $customer = $request->user('customer');
         $pricing = $this->pricing->priceBooking($booking, $customer);
@@ -375,6 +381,40 @@ class OrderController extends Controller
         ], fn (mixed $value): bool => $value !== null && $value !== '' && $value !== []);
 
         return $details === [] ? null : $details;
+    }
+
+    /**
+     * The fitting address must be served, and served by the same zone the
+     * booking's slot, stock and pricing were taken from. The customer checks
+     * a postcode before booking but types the street address only at
+     * checkout, so without this an order could be placed for an address
+     * outside the service area (or in another zone's area).
+     *
+     * Uses the same {@see ServiceabilityResolver} rule as the public
+     * serviceability check, so a suburb is accepted here exactly when that
+     * check would place it in the booking's zone. A zone switched off after
+     * the hold was taken no longer resolves, so it is refused too.
+     *
+     * @throws ValidationException on `address.suburb_id`, which the checkout
+     *                             shows against the address step
+     */
+    private function ensureAddressIsInBookingZone(StoreOrderRequest $request, Booking $booking): void
+    {
+        $suburb = Suburb::query()->findOrFail($request->integer('address.suburb_id'));
+
+        $zone = $this->serviceability->resolve(new EloquentCollection([$suburb]));
+
+        if ($zone === null) {
+            throw ValidationException::withMessages([
+                'address.suburb_id' => __('Sorry, we don\'t service :suburb yet.', ['suburb' => $suburb->name]),
+            ]);
+        }
+
+        if ($zone->id !== $booking->service_zone_id) {
+            throw ValidationException::withMessages([
+                'address.suburb_id' => __(':suburb is outside the area of your booking. Please update your location and choose a new time.', ['suburb' => $suburb->name]),
+            ]);
+        }
     }
 
     /**

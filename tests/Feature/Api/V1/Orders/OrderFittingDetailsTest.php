@@ -23,7 +23,7 @@ function fittingOrderRequest(array $extra = []): array
     $variant = TyreVariant::factory()->create(['base_price' => 18900]);
     $booking = Booking::factory()->create(['manage_token_hash' => Booking::hashManageToken('guest-token-123')]);
     BookingLineItem::factory()->create(['booking_id' => $booking->id, 'tyre_variant_id' => $variant->id, 'quantity' => 4]);
-    $suburb = Suburb::factory()->create();
+    $suburb = Suburb::factory()->servicedBy($booking->serviceZone)->create();
 
     return array_merge([
         'booking_id' => $booking->id,
