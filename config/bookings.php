@@ -55,6 +55,25 @@ return [
 
     'timezone' => env('BOOKINGS_TIMEZONE', 'Australia/Melbourne'),
 
+    /*
+    |--------------------------------------------------------------------------
+    | Fixed slot start times
+    |--------------------------------------------------------------------------
+    |
+    | The only start times customers are offered (24h "HH:MM", comma-separated
+    | in the env var). A start is offered on a day when a technician's shift
+    | (and the zone's operating hours) has room for the whole job from that
+    | time, so the shift must run past the last start by the job length - e.g.
+    | 09:00-21:00 for an 18:00 slot. Empty means the old behaviour: every
+    | 15 minutes the shift can fit. See App\Services\Bookings\SlotComputationService.
+    |
+    */
+
+    'slot_start_times' => array_values(array_filter(array_map(
+        'trim',
+        explode(',', (string) env('BOOKINGS_SLOT_START_TIMES', '09:00,12:00,15:00,18:00')),
+    ))),
+
     'same_day' => [
         'cutoff' => env('BOOKINGS_SAME_DAY_CUTOFF', '09:00'),
         'min_lead_minutes' => (int) env('BOOKINGS_SAME_DAY_MIN_LEAD_MINUTES', 60),

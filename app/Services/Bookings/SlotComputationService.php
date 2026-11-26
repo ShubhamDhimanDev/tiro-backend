@@ -29,7 +29,10 @@ class SlotComputationService
      */
     private const TRAVEL_BUFFER_MINUTES = 20;
 
-    /** Candidate slot start times are sliced on this fixed grid, in minutes. */
+    /**
+     * Candidate slot start times are sliced on this fixed grid, in minutes,
+     * when no fixed start times are configured (`bookings.slot_start_times`).
+     */
     private const SLOT_GRID_MINUTES = 15;
 
     /**
@@ -272,9 +275,40 @@ class SlotComputationService
     }
 
     /**
-     * Step 5: slice one free window into grid-aligned slot start times where
+     * Whether customers may book a slot starting at `$slotStart` ("H:i"):
+     * always true without fixed start times, otherwise only one of them.
+     * The customer booking and reschedule endpoints check this; the admin
+     * dispatch board does not, so staff can still place a job at any time.
+     */
+    public function isOfferedSlotStart(string $slotStart): bool
+    {
+        $fixedStarts = $this->fixedStartMinutes();
+
+        return $fixedStarts === null || in_array($this->timeToMinutes($slotStart), $fixedStarts, true);
+    }
+
+    /**
+     * The configured fixed start times as minutes past midnight, or null when
+     * none are configured (15-minute grid).
+     *
+     * @return list<int>|null
+     */
+    private function fixedStartMinutes(): ?array
+    {
+        $times = config('bookings.slot_start_times', []);
+
+        if (! is_array($times) || $times === []) {
+            return null;
+        }
+
+        return array_values(array_map(fn (string $time): int => $this->timeToMinutes($time), $times));
+    }
+
+    /**
+     * Step 5: slice one free window into slot start times where
      * `[start, start + duration]` fits entirely inside both the free window
-     * and the zone's operating hours for that weekday.
+     * and the zone's operating hours for that weekday. The starts are the
+     * configured fixed times, or every 15 minutes when none are configured.
      *
      * @param  array{0: int, 1: int}  $window
      * @param  array{0: int, 1: int}  $operatingWindow
@@ -284,6 +318,15 @@ class SlotComputationService
     {
         $lowerBound = max($window[0], $operatingWindow[0]);
         $upperBound = min($window[1], $operatingWindow[1]);
+
+        $fixedStarts = $this->fixedStartMinutes();
+
+        if ($fixedStarts !== null) {
+            return array_values(array_filter(
+                $fixedStarts,
+                fn (int $start): bool => $start >= $lowerBound && $start + $durationMinutes <= $upperBound,
+            ));
+        }
 
         $grid = self::SLOT_GRID_MINUTES;
         $firstSlot = (int) (ceil($lowerBound / $grid) * $grid);

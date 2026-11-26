@@ -54,6 +54,38 @@ it('returns 15-minute grid-aligned slots that fit inside both the shift window a
     }
 });
 
+it('offers only the configured fixed start times that fit the shift, hours and existing bookings', function () {
+    config(['bookings.slot_start_times' => ['09:00', '12:00', '15:00', '18:00']]);
+    $hours = array_fill_keys(['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'], ['open' => '09:00', 'close' => '21:00']);
+    ['zone' => $zone, 'technician' => $technician, 'van' => $van] = makeZoneWithShift(
+        ['shift_start' => '09:00:00', 'shift_end' => '21:00:00'],
+        ['operating_hours' => $hours],
+    );
+    $service = app(SlotComputationService::class);
+
+    expect(array_column($service->candidateSlotsForDate($zone, nextMonday(), 45, false), 'start'))
+        ->toBe(['09:00', '12:00', '15:00', '18:00']);
+
+    Booking::factory()->create([
+        'service_zone_id' => $zone->id,
+        'technician_id' => $technician->id,
+        'van_id' => $van->id,
+        'scheduled_date' => nextMonday()->toDateString(),
+        'slot_start' => '12:00:00',
+        'slot_end' => '12:45:00',
+        'status' => BookingStatus::Confirmed,
+    ]);
+
+    expect(array_column($service->candidateSlotsForDate($zone, nextMonday(), 45, false), 'start'))
+        ->toBe(['09:00', '15:00', '18:00']);
+    // An 18:00 start needs the shift to run past 18:00 by the job length.
+    $zone->update(['operating_hours' => array_fill_keys(array_keys($hours), ['open' => '09:00', 'close' => '18:30'])]);
+    expect(array_column($service->candidateSlotsForDate($zone, nextMonday(), 45, false), 'start'))
+        ->toBe(['09:00', '15:00']);
+    expect($service->isOfferedSlotStart('12:00'))->toBeTrue()
+        ->and($service->isOfferedSlotStart('10:15'))->toBeFalse();
+});
+
 it('returns no slots when the zone is closed that weekday', function () {
     ['zone' => $zone] = makeZoneWithShift();
 

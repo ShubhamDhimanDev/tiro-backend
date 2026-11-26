@@ -79,6 +79,21 @@ it('reschedules a guest booking presenting the correct manage token', function (
     expect($booking->fresh()->slot_start)->toBe('11:00:00');
 });
 
+it('only reschedules onto a configured fixed start time', function () {
+    config(['bookings.slot_start_times' => ['09:00', '12:00', '15:00', '18:00']]);
+    ['zone' => $zone, 'technician' => $technician, 'van' => $van] = rescheduleFixture();
+    [$booking, $token] = guestBookingWithToken($zone, $technician, $van);
+
+    $this->withHeader('X-Booking-Manage-Token', $token)
+        ->patchJson("/api/v1/bookings/{$booking->id}/reschedule", ['scheduled_date' => rescheduleMonday(), 'slot_start' => '11:00'])
+        ->assertStatus(409);
+
+    $this->withHeader('X-Booking-Manage-Token', $token)
+        ->patchJson("/api/v1/bookings/{$booking->id}/reschedule", ['scheduled_date' => rescheduleMonday(), 'slot_start' => '12:00'])
+        ->assertOk()
+        ->assertJsonPath('data.slot_start', '12:00');
+});
+
 it('rejects a reschedule with no manage token and no authenticated owner', function () {
     ['zone' => $zone, 'technician' => $technician, 'van' => $van] = rescheduleFixture();
     [$booking] = guestBookingWithToken($zone, $technician, $van);

@@ -9,7 +9,7 @@ use Database\Seeders\LocationSeeder;
 use Database\Seeders\OpenBookingCalendarSeeder;
 use Illuminate\Support\Carbon;
 
-it('opens 10:00-18:00 shifts for every future day with one van and one technician per zone', function () {
+it('opens 09:00-21:00 shifts for every future day with one van and one technician per zone', function () {
     $this->seed(LocationSeeder::class);
     $this->seed(OpenBookingCalendarSeeder::class);
 
@@ -25,9 +25,9 @@ it('opens 10:00-18:00 shifts for every future day with one van and one technicia
     $shifts = TechnicianShift::query()->where('service_zone_id', $zone->id)->whereDate('date', $sunday)->get();
 
     expect($shifts)->toHaveCount(1)
-        ->and($shifts->first()->shift_start)->toBe('10:00:00')
-        ->and($shifts->first()->shift_end)->toBe('18:00:00')
-        ->and($zone->refresh()->operating_hours['sun'])->toBe(['open' => '10:00', 'close' => '18:00']);
+        ->and($shifts->first()->shift_start)->toBe('09:00:00')
+        ->and($shifts->first()->shift_end)->toBe('21:00:00')
+        ->and($zone->refresh()->operating_hours['sun'])->toBe(['open' => '09:00', 'close' => '21:00']);
 });
 
 it('is idempotent and preserves admin edits to existing shifts', function () {
