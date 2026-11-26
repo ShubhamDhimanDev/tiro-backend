@@ -26,6 +26,7 @@ import {
     SelectTrigger,
     SelectValue,
 } from '@/components/ui/select';
+import { formatDate, toDateInputValue } from '@/lib/date';
 import { STATUS_OPTIONS, statusBadgeVariant } from '@/lib/enums';
 import type { BookingLookup, TechnicianShift } from '@/types/bookings';
 import type { Status } from '@/types/catalog';
@@ -64,7 +65,7 @@ function ShiftFormDialog({
         technician_id: shift ? String(shift.technician_id) : '',
         van_id: shift ? String(shift.van_id) : '',
         service_zone_id: shift ? String(shift.service_zone_id) : '',
-        date: shift?.date ?? todayIsoDate(),
+        date: shift ? toDateInputValue(shift.date) : todayIsoDate(),
         shift_start: shift?.shift_start.slice(0, 5) ?? '08:00',
         shift_end: shift?.shift_end.slice(0, 5) ?? '16:00',
         status: shift?.status ?? 'active',
@@ -350,7 +351,7 @@ export default function ShiftsIndex({
                                             className="border-b last:border-0"
                                         >
                                             <td className="py-2 font-medium">
-                                                {shift.date}
+                                                {formatDate(shift.date)}
                                             </td>
                                             <td className="py-2">
                                                 {shift.technician?.name}

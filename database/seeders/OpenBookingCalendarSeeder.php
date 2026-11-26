@@ -12,7 +12,7 @@ use Illuminate\Database\Seeder;
 use Illuminate\Support\Carbon;
 
 /**
- * Opens the booking calendar on every future date, 10:00 - 18:00, seven days
+ * Opens the booking calendar on every future date, 09:00 - 21:00, seven days
  * a week, with exactly one van and one technician per active service zone.
  *
  * Capacity is `TechnicianShift` rows (docs/architecture/04-booking-capacity-
@@ -21,7 +21,7 @@ use Illuminate\Support\Carbon;
  * (`php artisan db:seed --class=OpenBookingCalendarSeeder`) to extend the
  * window; it is idempotent.
  *
- * It also rewrites each zone's `operating_hours` to 10:00-18:00 on all seven
+ * It also rewrites each zone's `operating_hours` to 09:00-21:00 on all seven
  * days, because the slot engine intersects shifts with the zone's operating
  * window - without that, Sundays would stay closed and Saturdays would still
  * end earlier. A technician cannot be on two zones at the same time, so each
@@ -39,9 +39,10 @@ class OpenBookingCalendarSeeder extends Seeder
     /** How many days ahead of today the calendar is opened. */
     public const HORIZON_DAYS = 365;
 
-    public const SHIFT_START = '10:00';
+    /** Room for the 09:00, 12:00, 15:00 and 18:00 starts in config('bookings.slot_start_times'), three hours each. */
+    public const SHIFT_START = '09:00';
 
-    public const SHIFT_END = '18:00';
+    public const SHIFT_END = '21:00';
 
     private const DAY_KEYS = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'];
 

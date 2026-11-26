@@ -163,6 +163,9 @@ class BookingController extends Controller
                 $slotStarts = array_values(array_unique($slotStarts));
             }
 
+            // Only the configured start times (bookings.slot_start_times) are bookable; any other time is simply unavailable.
+            $slotStarts = array_filter($slotStarts, fn (string $slotStart): bool => $this->slots->isOfferedSlotStart($slotStart));
+
             foreach ($slotStarts as $candidateSlotStart) {
                 foreach ($this->slots->eligibleTechniciansForSlot($zone, $scheduledDate, $candidateSlotStart, $durationMinutes, $requiresAlignment) as $candidate) {
                     yield $candidate + ['slot_start' => $candidateSlotStart];
@@ -338,6 +341,10 @@ class BookingController extends Controller
 
         if (! $this->cutoff->allows($scheduledDate->toDateString(), $slotStart)) {
             return $this->cutoffRejection();
+        }
+
+        if (! $this->slots->isOfferedSlotStart($slotStart)) {
+            return response()->json(['message' => self::SLOT_UNAVAILABLE_MESSAGE], 409);
         }
 
         $candidates = $this->slots->eligibleTechniciansForSlot(
